@@ -27,11 +27,26 @@ const AcceptSchema = z.object({
   }),
 }).passthrough();
 
-// Engine-verified reachable pairs (native pf_contract_runner, V3).
-const PRESETS: { label: string; pair: FleetPair }[] = [
-  { label: 'Alpha', pair: { origin: 'chandigarh', destination: 'delhi', objective: 'FASTEST' } },
-  { label: 'Beta', pair: { origin: 'patiala', destination: 'rohtak', objective: 'FASTEST' } },
+// Engine-verified reachable pairs (native pf_contract_runner, V3/V4).
+// V3 Gamma (rohtak→jind) has a single inbound road (wr10): closing it
+// mid-run yields a genuine engine NO_ROUTE_AVAILABLE for blocked testing.
+const DEFAULTS: FleetPair[] = [
+  { origin: 'chandigarh', destination: 'delhi', objective: 'FASTEST' },
+  { origin: 'patiala', destination: 'rohtak', objective: 'FASTEST' },
+  { origin: 'rohtak', destination: 'jind', objective: 'FASTEST' },
+  { origin: 'ambala', destination: 'sonipat', objective: 'FASTEST' },
+  { origin: 'karnal', destination: 'gurugram', objective: 'FASTEST' },
 ];
+const ADDABLES: FleetPair[] = [
+  { origin: 'panipat', destination: 'meerut', objective: 'FASTEST' },
+  { origin: 'zirakpur', destination: 'meerut', objective: 'FASTEST' },
+  { origin: 'chandigarh', destination: 'rohtak', objective: 'FASTEST' },
+  { origin: 'delhi', destination: 'chandigarh', objective: 'FASTEST' },
+  { origin: 'ambala', destination: 'delhi', objective: 'FASTEST' },
+  { origin: 'sonipat', destination: 'panipat', objective: 'FASTEST' },
+];
+const LABELS = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa'];
+const MAX_VEHICLES = 10;
 
 const DIVERSION_THRESHOLD_S = 600;
 const CHECK_EVERY_SIM_S = 180;
@@ -79,6 +94,10 @@ export default function Fleet() {
   const markerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [confirmStart, setConfirmStart] = useState(false);
   const [panelHidden, setPanelHidden] = useState(false);
+  // Traffic the fleet injected (cleaned on reset; never touches user entries).
+  const injected = useRef<{ incidents: string[]; closures: { road: string; weClosed: boolean }[]; factors: string[] }>({
+    incidents: [], closures: [], factors: [],
+  });
 
   function otherSimActive(): boolean {
     const js = useSim.getState().status;
@@ -115,59 +134,125 @@ export default function Fleet() {
     await runStart();
   }
 
+  async function planVehicle(id: string): Promise<boolean> {
+    const v = useFleet.getState().vehicles[id];
+    const m = mut.current.get(id);
+    if (!v || !m) return false;
+    const o = await engineClient.call('route.find', {
+      network: networkPayload(), overlay: overlayOf(),
+      source: v.origin, target: v.destination,
+      objective: v.objective, algorithm: 'DIJKSTRA',
+    }, { channel: `fleet-plan-${id}` });
+    if (o.stale) throw new Error('stale route.find');
+    const route = DemoRouteSchema.parse(o.result);
+    if (!route.found) {
+      useFleet.getState().patchVehicle(id, {
+        status: 'error', error: route.reason || 'unreachable',
+        history: [...v.history, { t: Math.floor(m.simTimeS), kind: 'error', text: `no route: ${route.reason || 'unreachable'}` }],
+      });
+      useFleet.getState().pushEvent(fleetSim.current, id, `${id} has no route (${route.reason || 'unreachable'})`);
+      return false;
+    }
+    const durations: number[] = [];
+    const distances: number[] = [];
+    for (const a of route.arcs) {
+      const e = await evalArc(id, a.arcId, a.from);
+      durations.push(e.timeS);
+      distances.push(e.distanceM);
+      m.legs[a.arcId] = { from: a.from, to: a.to };
+    }
+    m.durations = durations;
+    m.distances = distances;
+    useFleet.getState().patchVehicle(id, {
+      status: 'enroute', planArcs: route.arcs.map((a) => a.arcId),
+      planVertices: route.vertices, durations, distances,
+      remainingS: durations.reduce((x, y) => x + y, 0),
+      remainingM: distances.reduce((x, y) => x + y, 0),
+      history: [...v.history, { t: Math.floor(m.simTimeS), kind: 'plan', text: `planned ${route.arcs.length} segments, ${formatSeconds(route.timeS)}` }],
+    });
+    useFleet.getState().pushEvent(fleetSim.current, id, `${id} ${v.label} planned ${route.arcs.length} segments`);
+    return true;
+  }
+
+  function nextFreeId(): string | null {
+    const used = new Set(useFleet.getState().order);
+    for (let i = 1; i <= MAX_VEHICLES; i++) {
+      if (!used.has(`V${i}`)) return `V${i}`;
+    }
+    return null;
+  }
+
+  function nextPair(): FleetPair | null {
+    const used = new Set(
+      useFleet.getState().order.map((id) => {
+        const v = useFleet.getState().vehicles[id];
+        return v ? `${v.origin}|${v.destination}` : '';
+      }),
+    );
+    return [...DEFAULTS, ...ADDABLES].find((p) => !used.has(`${p.origin}|${p.destination}`)) ?? null;
+  }
+
+  async function addVehicle() {
+    const s = useFleet.getState();
+    if (s.status === 'starting') return;
+    const id = nextFreeId();
+    const pair = nextPair();
+    if (!id || !pair) {
+      pushToast(`Fleet is full (${MAX_VEHICLES} vehicles)`, 'error');
+      return;
+    }
+    const n = Number(id.slice(1));
+    const v = blankVehicle(id, LABELS[n - 1] ?? id, VEHICLE_COLORS[n - 1] ?? '#44403c', pair);
+    useFleet.getState().upsertVehicle(v);
+    mut.current.set(id, { ...freshVMutable(), lastVersion: useTraffic.getState().version });
+    if (s.status === 'running' || s.status === 'paused') {
+      try {
+        await planVehicle(id);
+      } catch (e) {
+        useFleet.getState().patchVehicle(id, {
+          status: 'error', error: e instanceof EngineError ? `${e.code}: ${e.message}` : String(e),
+        });
+      }
+    } else {
+      pushToast(`${id} queued for next start`);
+    }
+  }
+
+  function removeVehicle(id: string) {
+    const s = useFleet.getState();
+    if (s.status === 'starting') return;
+    mut.current.delete(id);
+    delete markerRefs.current[id];
+    useFleet.getState().removeVehicle(id);
+    useFleet.getState().pushEvent(fleetSim.current, null, `${id} removed from fleet`);
+  }
+
   async function runStart() {
     setConfirmStart(false);
+    clearFleetTraffic();
+    // Preserve pre-start queued vehicles alongside the defaults.
+    const queued: FleetPair[] = useFleet.getState().order
+      .map((id) => useFleet.getState().vehicles[id])
+      .filter((v) => v && v.status === 'planned' && !DEFAULTS.some((d) => d.origin === v.origin && d.destination === v.destination))
+      .map((v) => ({ origin: v!.origin, destination: v!.destination, objective: v!.objective }));
+    const roster = [...DEFAULTS, ...queued].slice(0, MAX_VEHICLES);
     useFleet.getState().reset();
     mut.current = new Map();
     fleetSim.current = 0;
     lastSeenVersion.current = useTraffic.getState().version;
     useFleet.getState().set({ status: 'starting', error: '' });
     try {
-      for (let i = 0; i < PRESETS.length; i++) {
-        const preset = PRESETS[i]!;
+      for (let i = 0; i < roster.length; i++) {
+        const pair = roster[i]!;
         const id = `V${i + 1}`;
-        const color = VEHICLE_COLORS[i] ?? '#44403c';
-        const v = blankVehicle(id, preset.label, color, preset.pair);
+        const v = blankVehicle(id, LABELS[i] ?? id, VEHICLE_COLORS[i] ?? '#44403c', pair);
         useFleet.getState().upsertVehicle(v);
         mut.current.set(id, { ...freshVMutable(), lastVersion: lastSeenVersion.current });
-        const o = await engineClient.call('route.find', {
-          network: networkPayload(), overlay: overlayOf(),
-          source: preset.pair.origin, target: preset.pair.destination,
-          objective: preset.pair.objective, algorithm: 'DIJKSTRA',
-        }, { channel: `fleet-plan-${id}` });
-        if (o.stale) throw new Error('stale route.find');
-        const route = DemoRouteSchema.parse(o.result);
-        if (!route.found) {
-          useFleet.getState().patchVehicle(id, {
-            status: 'error', error: route.reason || 'unreachable',
-            history: [{ t: 0, kind: 'error', text: `no route: ${route.reason || 'unreachable'}` }],
-          });
-          useFleet.getState().pushEvent(0, id, `${id} has no route (${route.reason || 'unreachable'})`);
-          continue;
-        }
-        const m = mut.current.get(id)!;
-        const durations: number[] = [];
-        const distances: number[] = [];
-        for (const a of route.arcs) {
-          const e = await evalArc(id, a.arcId, a.from);
-          durations.push(e.timeS);
-          distances.push(e.distanceM);
-          m.legs[a.arcId] = { from: a.from, to: a.to };
-        }
-        m.durations = durations;
-        m.distances = distances;
-        useFleet.getState().patchVehicle(id, {
-          status: 'enroute', planArcs: route.arcs.map((a) => a.arcId),
-          planVertices: route.vertices, durations, distances,
-          remainingS: durations.reduce((x, y) => x + y, 0),
-          remainingM: distances.reduce((x, y) => x + y, 0),
-          history: [{ t: 0, kind: 'plan', text: `planned ${route.arcs.length} segments, ${formatSeconds(route.timeS)}` }],
-        });
-        useFleet.getState().pushEvent(0, id, `${id} ${preset.label} planned ${route.arcs.length} segments`);
+        await planVehicle(id);
       }
       useFleet.getState().set({ status: 'running' });
       lastWall.current = performance.now();
-      pushToast('Fleet started: 2 vehicles en route');
+      pushToast(`Fleet started: ${roster.length} vehicles en route`);
     } catch (e) {
       useFleet.getState().set({
         status: 'error',
@@ -325,6 +410,28 @@ export default function Fleet() {
     useFleet.getState().pushEvent(fleetSim.current, id, `${id} stayed on route`);
   }
 
+  function closeRoad(road: string, kind: 'accident' | 'construction' | 'jam' = 'accident'): string | null {
+    const t = useTraffic.getState();
+    if (!road || t.closures.includes(road)) return null;
+    const incidentId = t.addIncident(road, 'both', kind);
+    useTraffic.getState().toggleClosure(road);
+    injected.current.incidents.push(incidentId);
+    injected.current.closures.push({ road, weClosed: true });
+    return incidentId;
+  }
+
+  function clearFleetTraffic() {
+    const t = useTraffic.getState();
+    for (const id of injected.current.incidents) t.removeIncident(id);
+    for (const c of injected.current.closures) {
+      if (c.weClosed && useTraffic.getState().closures.includes(c.road)) {
+        useTraffic.getState().toggleClosure(c.road);
+      }
+    }
+    for (const road of injected.current.factors) t.clearFactor(road);
+    injected.current = { incidents: [], closures: [], factors: [] };
+  }
+
   function simulateIncident() {
     const s = useFleet.getState();
     if (s.status !== 'running' && s.status !== 'paused') return;
@@ -336,23 +443,51 @@ export default function Fleet() {
       pushToast('No en-route vehicle to disrupt', 'error');
       return;
     }
-    const t = useTraffic.getState();
     const future = target.planArcs.slice(m.arcIdx + 1);
+    const t = useTraffic.getState();
     const road = future.map(roadOf).find((r) => !t.closures.includes(r))
       ?? roadOf(target.planArcs[m.arcIdx] ?? '');
     if (!road) {
       pushToast('No eligible road ahead', 'error');
       return;
     }
-    const incidentId = t.addIncident(road, 'both', 'accident');
-    if (!useTraffic.getState().closures.includes(road)) {
-      useTraffic.getState().toggleClosure(road);
+    const incidentId = closeRoad(road);
+    if (!incidentId) {
+      pushToast('No eligible road ahead', 'error');
+      return;
     }
     useFleet.getState().pushEvent(
       fleetSim.current, target.id,
       `SIMULATED incident ${incidentId}: ${road} closed (affects ${target.id} route)`,
     );
     pushToast(`SIMULATED incident: ${road} closed`, 'error');
+  }
+
+  // Deterministic disruption presets over fixed road sets. Effects are
+  // computed by the engine per vehicle; the preset only edits the overlay.
+  function presetMajorClosure() {
+    const s = useFleet.getState();
+    if (s.status !== 'running' && s.status !== 'paused') return;
+    const id = closeRoad('ex04', 'construction');
+    useFleet.getState().pushEvent(
+      fleetSim.current, null,
+      id ? `SIMULATED preset: major closure ex04 (${id})` : 'Preset: ex04 already closed',
+    );
+    pushToast(id ? 'SIMULATED preset: ex04 closed' : 'ex04 already closed', 'error');
+  }
+
+  function presetCongestion() {
+    const s = useFleet.getState();
+    if (s.status !== 'running' && s.status !== 'paused') return;
+    const t = useTraffic.getState();
+    for (const road of ['ex04', 'ex05', 'ex06', 'ex07']) {
+      if (!injected.current.factors.includes(road)) {
+        t.setFactor(road, 300);
+        injected.current.factors.push(road);
+      }
+    }
+    useFleet.getState().pushEvent(fleetSim.current, null, 'SIMULATED preset: corridor congestion 30% speed');
+    pushToast('SIMULATED preset: corridor congestion', 'error');
   }
 
   // Single loop for the whole fleet; per-vehicle clocks advance together.
@@ -477,6 +612,7 @@ export default function Fleet() {
   // detection (an effect here would swallow the bump before the loop sees it).
 
   function reset() {
+    clearFleetTraffic();
     mut.current = new Map();
     fleetSim.current = 0;
     useFleet.getState().reset();
@@ -549,6 +685,14 @@ export default function Fleet() {
             <p className="pf-meta" data-testid="engine-status">Engine: {engineStatus}</p>
             <p className="pf-meta" role="status" data-testid="fleet-status">Status: {fleet.status}</p>
             <p className="pf-meta" data-testid="fleet-overlay">Shared overlay v{trafficVersion}</p>
+            <p className="pf-meta" data-testid="fleet-traffic">
+              Fleet traffic: {injected.current.incidents.length} incident(s),{' '}
+              {injected.current.closures.length} closure(s), {injected.current.factors.length} factor(s){' '}
+              <button className="pf-btn small" onClick={() => { clearFleetTraffic(); pushToast('Fleet traffic cleared'); }}
+                data-testid="fleet-clear-traffic">
+                Clear fleet traffic
+              </button>
+            </p>
             <p className="pf-meta" data-testid="fleet-counts">
               Active {counts.active} · Completed {counts.completed} · Awaiting {counts.awaiting} · Blocked {counts.blocked}
             </p>
@@ -571,6 +715,22 @@ export default function Fleet() {
               {(fleet.status === 'running' || fleet.status === 'paused') && (
                 <button className="pf-btn" onClick={simulateIncident} data-testid="fleet-incident">
                   Simulate Incident
+                </button>
+              )}
+              {(fleet.status === 'running' || fleet.status === 'paused') && (
+                <button className="pf-btn" onClick={presetMajorClosure} data-testid="fleet-preset-closure">
+                  Major Closure
+                </button>
+              )}
+              {(fleet.status === 'running' || fleet.status === 'paused') && (
+                <button className="pf-btn" onClick={presetCongestion} data-testid="fleet-preset-congestion">
+                  Congestion
+                </button>
+              )}
+              {fleet.status !== 'starting' && (
+                <button className="pf-btn" onClick={() => void addVehicle()} data-testid="fleet-add"
+                  disabled={fleet.order.length >= MAX_VEHICLES}>
+                  Add Vehicle ({fleet.order.length}/{MAX_VEHICLES})
                 </button>
               )}
               {fleet.status !== 'idle' && fleet.status !== 'starting' && (
@@ -627,8 +787,18 @@ export default function Fleet() {
                     {vertexName(v.origin)} → {vertexName(v.destination)} ·{' '}
                     <span data-testid={`fleet-vprogress-${id}`}>{Math.round(v.progress * 100)}%</span> ·{' '}
                     ETA {formatSeconds(v.remainingS)}
-                    {v.currentRoad && <> · on {v.currentRoad}</>}
-                    {v.affected.length > 0 && <> · affected: {v.affected.join(', ')}</>}
+                    {v.currentRoad && <> · <span data-testid={`fleet-vroad-${id}`}>on {v.currentRoad}</span></>}{' '}
+                    <button className="pf-btn small" data-testid={`fleet-remove-${id}`}
+                      onClick={() => removeVehicle(id)} aria-label={`Remove ${id}`}>
+                      Remove
+                    </button>
+                    <div data-testid={`fleet-vbar-${id}`} role="progressbar"
+                      aria-valuenow={Math.round(v.progress * 100)} aria-valuemin={0} aria-valuemax={100}
+                      aria-label={`${id} progress`}
+                      style={{ height: 8, borderRadius: 4, background: 'var(--pf-paper-sink)', overflow: 'hidden' }}>
+                      <div style={{ width: `${(v.progress * 100).toFixed(1)}%`, height: '100%', background: v.color }} />
+                    </div>
+                    {v.affected.length > 0 && <> · <span data-testid={`fleet-vaffected-${id}`}>affected: {v.affected.join(', ')}</span></>}
                     {v.status === 'awaiting' && v.decision && (
                       <span data-testid={`fleet-vdecision-${id}`}>
                         {' '}· {v.decision.decision} ({v.decision.reason})
