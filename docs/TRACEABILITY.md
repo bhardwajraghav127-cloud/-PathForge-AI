@@ -5,10 +5,10 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | ID | Requirement | Source | MS | Owner | Status | Evidence | Commit |
 |----|-------------|--------|----|-------|--------|----------|--------|
 | REQ-01 | Premium responsive dashboard + network map | §1.1 | M6 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
-| REQ-02 | Fastest vs shortest route | §1.2 | M2 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
-| REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
-| REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
-| REQ-05 | 5 objectives (fastest/shortest/toll/avoid/balanced) | §1.5 | M2 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
+| REQ-02 | Fastest vs shortest route | §1.2 | M2 | A2 | VERIFIED | engine/tests/test_objectives.cpp + E2E AC-06 | M2 |
+| REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | VERIFIED | engine/tests/test_yen* + E2E traffic.spec | M3 |
+| REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | VERIFIED | contract cmp-*.json + E2E why-panel | M3 |
+| REQ-05 | 5 objectives (fastest/shortest/toll/avoid/balanced) | §1.5 | M2 | A2 | VERIFIED | engine/tests/test_objectives.cpp | M2 |
 | REQ-06 | Congestion/condition simulation | §1.6 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-07 | Accidents/construction/restrictions/jams/closures | §1.7 | M3 | A2 | NOT_STARTED | — | — |
 | REQ-08 | Recalc after network/traffic change | §1.8 | M4 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
