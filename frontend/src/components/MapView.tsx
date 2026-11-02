@@ -26,6 +26,7 @@ export interface MapViewProps {
   originId?: string | null;
   destId?: string | null;
   stopIds?: string[];
+  stopOrder?: string[];
   cyOut?: React.MutableRefObject<Core | null>;
   network?: Dataset;
   onSetOrigin?: (id: string) => void;
@@ -39,7 +40,7 @@ function roadEnds(net: Dataset, vertexId: string) {
 
 export default function MapView(props: MapViewProps) {
   const {
-    routeArcIds, altArcIds, visitedIds, currentId, originId, destId, stopIds,
+    routeArcIds, altArcIds, visitedIds, currentId, originId, destId, stopIds, stopOrder,
     cyOut, network, onSetOrigin, onSetDestination, statsExtra,
   } = props;
   const ref = useRef<HTMLDivElement>(null);
@@ -57,6 +58,7 @@ export default function MapView(props: MapViewProps) {
   const [inspectEdge, setInspectEdge] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showKeys, setShowKeys] = useState(false);
+  const [chips, setChips] = useState<{ id: string; n: number; x: number; y: number }[]>([]);
 
   const applyClasses = useCallback(() => {
     const cy = cyRef.current;
@@ -221,6 +223,7 @@ export default function MapView(props: MapViewProps) {
       timer = window.setTimeout(() => declutterRef.current(), 160);
     };
     cy.on('zoom pan', schedule);
+    cy.on('pan zoom', () => chipsRef.current());
     cy.on('tap', (e) => {
       const t = e.target;
       if (t === cy) {
@@ -253,6 +256,29 @@ export default function MapView(props: MapViewProps) {
 
   const declutterRef = useRef(declutter);
   declutterRef.current = declutter;
+
+  const updateChips = useCallback(() => {
+    const cy = cyRef.current;
+    const order = stopOrder ?? [];
+    if (!cy || order.length === 0) {
+      setChips([]);
+      return;
+    }
+    const next: { id: string; n: number; x: number; y: number }[] = [];
+    order.forEach((id, n) => {
+      const node = cy.getElementById(id);
+      if (node.length === 0) return;
+      const p = node.renderedPosition();
+      next.push({ id, n: n + 1, x: p.x, y: p.y - 24 });
+    });
+    setChips(next);
+  }, [stopOrder]);
+  const chipsRef = useRef(updateChips);
+  chipsRef.current = updateChips;
+
+  useEffect(() => {
+    updateChips();
+  }, [updateChips, routeArcIds]);
 
   useEffect(() => {
     applyClasses();
@@ -397,6 +423,24 @@ export default function MapView(props: MapViewProps) {
         <span><span className="k jam" />Congested (dotted)</span>
       </div>
       {view === 'explore' && <div className="pf-schematic-tag" data-testid="map-schematic-tag">SCHEMATIC — NOT GEOGRAPHIC</div>}
+      {chips.length > 0 && (
+        <div data-testid="stop-markers" aria-hidden="true"
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}>
+          {chips.map((c) => (
+            <div key={c.id} data-testid={`stop-marker-${c.n}`}
+              style={{
+                position: 'absolute', top: 0, left: 0,
+                transform: `translate(${c.x}px, ${c.y}px) translate(-50%,-50%)`,
+                minWidth: 24, height: 24, borderRadius: 12,
+                background: 'var(--pf-alt)', color: '#fff',
+                fontSize: 13, fontWeight: 700, textAlign: 'center', lineHeight: '24px',
+                padding: '0 6px',
+              }}>
+              {c.n}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="pf-schematic-tag" style={{ right: view === 'explore' ? 10 : 10, bottom: view === 'explore' ? 34 : 10 }} data-testid="map-stats">
         {net.vertices.length} nodes · {net.roads.length} roads · {view}{statsExtra ? ` · ${statsExtra}` : ''}
       </div>

@@ -31,6 +31,8 @@ interface TrafficState {
   setFactor: (road: string, permille: number) => void;
   clearFactor: (road: string) => void;
   toggleClosure: (road: string) => void;
+  loadSnapshot: (overlay: OverlayPayload) => void;
+  clearAll: () => void;
   overlay: () => OverlayPayload;
 }
 
@@ -72,6 +74,21 @@ export const useTraffic = create<TrafficState>()((set, get) => ({
         : [...s.closures, road],
       version: s.version + 1,
     })),
+  loadSnapshot: (overlay) =>
+    set((s) => ({
+      incidents: (overlay.incidents ?? [])
+        .filter((i) => i.kind !== 'closure')
+        .map((i, k) => ({
+          id: i.id || `s${k}`,
+          road: i.road,
+          dir: (i.dir === 'forward' || i.dir === 'reverse' ? i.dir : 'both') as IncidentDir,
+          kind: (['jam', 'accident', 'construction', 'partial'].includes(i.kind) ? i.kind : 'jam') as TrafficIncident['kind'],
+        })),
+      factors: { ...(overlay.factors ?? {}) },
+      closures: [...(overlay.closures ?? [])],
+      version: s.version + 1,
+    })),
+  clearAll: () => set((s) => ({ incidents: [], factors: {}, closures: [], version: s.version + 1 })),
   overlay: () => {
     const s = get();
     return {
