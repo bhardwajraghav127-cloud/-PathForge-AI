@@ -29,6 +29,8 @@ export interface RouteFacts {
 interface SettingsState {
   theme: Theme;
   toggleTheme: () => void;
+  viva: boolean;
+  toggleViva: () => void;
 }
 function loadTheme(): Theme {
   try {
@@ -38,8 +40,26 @@ function loadTheme(): Theme {
     return 'light';
   }
 }
+function loadViva(): boolean {
+  try {
+    return localStorage.getItem('pf-viva') === '1';
+  } catch {
+    return false;
+  }
+}
 export const useSettings = create<SettingsState>()((set) => ({
   theme: typeof localStorage === 'undefined' ? 'light' : loadTheme(),
+  viva: typeof localStorage === 'undefined' ? false : loadViva(),
+  toggleViva: () =>
+    set((s) => {
+      const viva = !s.viva;
+      try {
+        localStorage.setItem('pf-viva', viva ? '1' : '0');
+      } catch {
+        /* storage may be unavailable */
+      }
+      return { viva };
+    }),
   toggleTheme: () =>
     set((s) => {
       const theme: Theme = s.theme === 'light' ? 'dark' : 'light';

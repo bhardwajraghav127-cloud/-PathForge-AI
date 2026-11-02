@@ -46,6 +46,18 @@ export interface FleetVehicleSnap {
   reroutes: number;
   savedEstimateS: number;
   error: string;
+  lastReceipt: {
+    overlayVersion: number;
+    affectedRoads: string[];
+    originalRemainingEtaS: number;
+    candidateRemainingEtaS: number | null;
+    policyDecision: string;
+    policyReason: string;
+    savingEstimateS: number | null;
+    userAction: 'accept' | 'stay';
+    simTimeS: number;
+    atArc: string;
+  } | null;
 }
 
 export interface FleetEvent {
@@ -91,6 +103,7 @@ export function blankVehicle(id: string, label: string, color: string, pair: Fle
     arcIdx: 0, fracPermille: 0, simTimeS: 0,
     currentRoad: null, remainingS: 0, remainingM: 0, progress: 0,
     affected: [], decision: null, history: [], reroutes: 0, savedEstimateS: 0, error: '',
+    lastReceipt: null,
   };
 }
 

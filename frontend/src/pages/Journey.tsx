@@ -12,6 +12,7 @@ import { formatMetres, formatSeconds, networkPayload, vertexName } from '../data
 import { useRoute } from '../store';
 import { useTraffic } from '../traffic';
 import { SPEEDS, useSim, type DiversionBanner } from '../simulation';
+import VivaCard from '../components/VivaCard';
 
 const EvalSchema = z.object({
   valid: z.boolean(), blocked: z.boolean().catch(false),
@@ -631,6 +632,7 @@ export default function Journey() {
           </section>
 
           <TrafficPanel />
+          <VivaCard page="journey" />
         </div>
       </div>
     </div>

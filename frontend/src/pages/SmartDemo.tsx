@@ -15,6 +15,8 @@ import { formatInr, formatMetres, formatSeconds, networkPayload, vertexName } fr
 import { useTraffic } from '../traffic';
 import { useSim, type DiversionBanner } from '../simulation';
 import { useDemo, type DecisionReceipt } from '../demo/store';
+import ExplainDrawer from '../explain/ExplainDrawer';
+import VivaCard from '../components/VivaCard';
 import {
   DEMO_DIVERSION_THRESHOLD_S, DemoDivSchema, DemoEvalSchema, prepareScenario,
 } from '../demo/scenario';
@@ -98,6 +100,7 @@ export default function SmartDemo() {
   const [presenter, setPresenter] = useState(false);
   const [autoChoice, setAutoChoice] = useState(false);
   const [autoIn, setAutoIn] = useState(0);
+  const [explainOpen, setExplainOpen] = useState(false);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const guidedRef = useRef(guided);
@@ -604,6 +607,11 @@ export default function SmartDemo() {
             {demo.scenario && !demo.scenario.candidate && (
               <p data-testid="demo-no-diversion">{demo.scenario.noDiversionDetail}</p>
             )}
+            {demo.scenario && (
+              <button className="pf-btn" onClick={() => setExplainOpen(true)} data-testid="demo-why">
+                Why This Route?
+              </button>
+            )}
             {running && currentLeg && (
               <p data-testid="demo-leg">
                 {vertexName(currentLeg.from)} → {vertexName(currentLeg.to)} · {formatSeconds(demo.pos.simTimeS)} elapsed
@@ -687,6 +695,21 @@ export default function SmartDemo() {
               </p>
             </section>
           )}
+          {demo.scenario && (
+            <ExplainDrawer open={explainOpen} onClose={() => setExplainOpen(false)} testid="demo-why"
+              source={demo.scenario.source} target={demo.scenario.target}
+              objective={demo.scenario.objective} algorithm={demo.scenario.algorithm}
+              arcs={demo.scenario.route.arcs} vertices={demo.scenario.route.vertices}
+              totals={{
+                timeS: demo.scenario.route.timeS, distanceM: demo.scenario.route.distanceM,
+                tollInr: demo.scenario.route.tollInr,
+              }}
+              alternatives={demo.scenario.alternatives.map((a, i) => ({
+                label: `alt${i}`, timeS: a.timeS, distanceM: a.distanceM, tollInr: a.tollInr,
+                arcs: a.arcs.map((x) => x.arcId),
+              }))} />
+          )}
+          <VivaCard page="demo" />
           <Confirm open={confirmOverwrite} title="Start demo?"
             body="This resets the demo and injects a SIMULATED incident into the shared traffic overlay. A journey or demo may be in progress."
             confirmLabel="Start anyway" testid="demo-overwrite"

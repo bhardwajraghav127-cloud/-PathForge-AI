@@ -27,11 +27,17 @@ const LINKS = [
 function Settings() {
   const theme = useSettings((s) => s.theme);
   const toggleTheme = useSettings((s) => s.toggleTheme);
+  const viva = useSettings((s) => s.viva);
+  const toggleViva = useSettings((s) => s.toggleViva);
   return (
     <div>
       <h2>Settings</h2>
       <p data-testid="theme-current">Theme: {theme}</p>
       <button className="pf-btn" onClick={toggleTheme} data-testid="theme-toggle">Toggle theme</button>
+      <p data-testid="viva-current">Professor/Viva Mode: {viva ? 'on' : 'off'}</p>
+      <button className="pf-btn" onClick={toggleViva} data-testid="viva-toggle">
+        {viva ? 'Disable Viva Mode' : 'Enable Viva Mode'}
+      </button>
     </div>
   );
 }

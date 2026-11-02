@@ -6,6 +6,7 @@ import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { VERTICES, formatInr, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
 import { usePlaces } from '../places';
+import ExplainDrawer from '../explain/ExplainDrawer';
 import { useRoute, type AltRoute, type CompareDelta, type RouteFacts } from '../store';
 import { useTraffic } from '../traffic';
 import { Chip, SearchSelect, Tabs, useToasts } from './ui';
@@ -66,6 +67,7 @@ export default function RoutePanel() {
   const [placeName, setPlaceName] = useState('');
   const [tab, setTab] = useState('overview');
   const [showWhy, setShowWhy] = useState(false);
+  const [explainOpen, setExplainOpen] = useState(false);
   const lastVersion = useRef(1);
   const inFlight = useRef(false);
   const { phase, params, facts, error } = route;
@@ -168,6 +170,13 @@ export default function RoutePanel() {
             ⇅ Swap
           </button>
           <span className="pf-meta">Tip: tap any city on the map to set origin or destination.</span>
+          <button className="pf-btn small" data-testid="emergency-preset"
+            onClick={() => {
+              setPlanner({ source: 'ambala', target: 'delhi', objective: 'FASTEST' });
+              pushToast('Emergency drill: fastest Ambala→Delhi, incident-aware. SIMULATED — not real dispatch.');
+            }}>
+            Emergency drill
+          </button>
         </div>
         <SearchSelect id="destination" label="Destination" options={VERTEX_OPTIONS} value={planner.target}
           onPick={(id) => setPlanner({ target: id })} testid="destination" />
@@ -333,6 +342,9 @@ export default function RoutePanel() {
                       <p className="pf-meta" data-testid="why-shared">
                         {route.sharedArcs.length} shared arc(s) across compared plans.
                       </p>
+                      <button className="pf-btn" onClick={() => setExplainOpen(true)} data-testid="why-evidence">
+                        Open edge-by-edge evidence
+                      </button>
                     </div>
                   )}
                 </div>
@@ -352,6 +364,16 @@ export default function RoutePanel() {
       )}
       {phase === 'error' && (
         <div className="pf-alert error" role="alert" data-testid="route-error">{error}</div>
+      )}
+      {displayed?.found && params && (
+        <ExplainDrawer open={explainOpen} onClose={() => setExplainOpen(false)} testid="why"
+          source={params.source} target={params.target} objective={params.objective} algorithm="DIJKSTRA"
+          arcs={displayed.arcs} vertices={displayed.vertices}
+          totals={{ timeS: displayed.timeS, distanceM: displayed.distanceM, tollInr: displayed.tollInr }}
+          alternatives={route.alternatives.filter((a) => a.found).map((a) => ({
+            label: a.altId, timeS: a.timeS, distanceM: a.distanceM, tollInr: a.tollInr,
+            arcs: a.arcs.map((x) => x.arcId),
+          }))} />
       )}
     </div>
   );

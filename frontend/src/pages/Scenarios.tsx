@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import MapView from '../components/MapView';
 import TrafficPanel from '../components/TrafficPanel';
+import VivaCard from '../components/VivaCard';
 import { Confirm, EmptyState, useToasts } from '../components/ui';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
@@ -204,6 +205,7 @@ export default function Scenarios() {
           )}
 
           <TrafficPanel />
+          <VivaCard page="scenarios" />
         </div>
       </div>
       <Confirm open={confirmDelete !== null} title="Delete snapshot?"

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import MapView from '../components/MapView';
 import TrafficPanel from '../components/TrafficPanel';
+import VivaCard from '../components/VivaCard';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { DATASET, type Dataset, formatSeconds } from '../data/dataset';
@@ -635,6 +636,7 @@ export default function Lab() {
 
           <TrafficPanel />
           <p className="pf-meta" data-testid="traffic-note">Closures apply to lab runs (MST shows FOREST when split). Overlay v{trafficVersion}.</p>
+          <VivaCard page="lab" />
         </div>
       </div>
     </div>

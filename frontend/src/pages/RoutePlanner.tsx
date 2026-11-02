@@ -2,6 +2,7 @@ import { useState } from 'react';
 import MapView from '../components/MapView';
 import RoutePanel from '../components/RoutePanel';
 import TrafficPanel from '../components/TrafficPanel';
+import VivaCard from '../components/VivaCard';
 import { useRoute } from '../store';
 
 export default function RoutePlanner() {
@@ -35,6 +36,7 @@ export default function RoutePlanner() {
         <div className="pf-panel" style={{ padding: 0, border: 0 }}>
           <RoutePanel />
           <TrafficPanel />
+          <VivaCard page="route" />
         </div>
       </div>
     </div>

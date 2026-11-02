@@ -259,6 +259,9 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .pf-dialog { background: var(--pf-paper); border-radius: var(--pf-radius-l); box-shadow: var(--pf-shadow-lg);
   padding: 20px; max-width: 440px; width: 100%; }
 .pf-dialog h2 { font-size: var(--pf-h2); margin: 0 0 8px; }
+.pf-dialog-wide { max-width: 720px; max-height: 88vh; overflow: auto; }
+.pf-dialog-wide table { width: 100%; border-collapse: collapse; font-size: var(--pf-body); }
+.pf-dialog-wide th, .pf-dialog-wide td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--pf-line); font-variant-numeric: tabular-nums; }
 
 /* ---------- loading ---------- */
 .pf-spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--pf-line-strong);

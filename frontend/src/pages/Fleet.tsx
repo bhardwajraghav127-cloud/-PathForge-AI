@@ -10,11 +10,13 @@ import MapView from '../components/MapView';
 import { Confirm, useToasts } from '../components/ui';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
-import { formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
+import { ROADS, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
 import { useTraffic } from '../traffic';
 import { useSim } from '../simulation';
 import { useDemo } from '../demo/store';
 import { DemoDivSchema, DemoEvalSchema, DemoRouteSchema } from '../demo/scenario';
+import ExplainDrawer from '../explain/ExplainDrawer';
+import VivaCard from '../components/VivaCard';
 import {
   FLEET_SPEEDS, VEHICLE_COLORS, blankVehicle, useFleet, type FleetPair, type VehicleDecision,
 } from '../fleet/store';
@@ -94,6 +96,7 @@ export default function Fleet() {
   const markerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [confirmStart, setConfirmStart] = useState(false);
   const [panelHidden, setPanelHidden] = useState(false);
+  const [explainOpen, setExplainOpen] = useState(false);
   // Traffic the fleet injected (cleaned on reset; never touches user entries).
   const injected = useRef<{ incidents: string[]; closures: { road: string; weClosed: boolean }[]; factors: string[] }>({
     incidents: [], closures: [], factors: [],
@@ -363,11 +366,23 @@ export default function Fleet() {
       m.distances = distances;
       m.banner = null;
       const saved = b.savingS ?? 0;
+      const affectedRoads = [...new Set(v.planArcs.slice(b.frozenArcIdx).map(roadOf)
+        .filter((r) => {
+          const ov = overlayOf();
+          return ov.closures.includes(r) || ov.incidents.some((i) => i.road === r);
+        }))];
       useFleet.getState().patchVehicle(id, {
         status: 'enroute', decision: null,
         planArcs: a.plan.arcs.map((x) => x.arcId), planVertices: a.plan.vertices,
         durations, distances, arcIdx: 0, fracPermille: b.frozenFrac, simTimeS: b.frozenSim,
         reroutes: v.reroutes + 1, savedEstimateS: v.savedEstimateS + saved,
+        lastReceipt: {
+          overlayVersion: b.overlayVersion, affectedRoads,
+          originalRemainingEtaS: b.currentEtaS, candidateRemainingEtaS: b.candidateEtaS,
+          policyDecision: b.decision, policyReason: b.reason,
+          savingEstimateS: b.savingS, userAction: 'accept',
+          simTimeS: b.frozenSim, atArc: b.frozenArc,
+        },
         history: [...v.history, {
           t: b.frozenSim, kind: 'accept',
           text: `accepted ${b.decision}, est. save ${b.savingS === null ? 'n/a' : formatSeconds(b.savingS)}`,
@@ -403,9 +418,21 @@ export default function Fleet() {
       /* failed reject still dismisses locally */
     }
     m.banner = null;
+    const affectedRoads = [...new Set(v.planArcs.slice(b.frozenArcIdx).map(roadOf)
+      .filter((r) => {
+        const ov = overlayOf();
+        return ov.closures.includes(r) || ov.incidents.some((i) => i.road === r);
+      }))];
     useFleet.getState().patchVehicle(id, {
       status: 'enroute', decision: null,
       history: [...v.history, { t: b.frozenSim, kind: 'stay', text: `stayed despite ${b.decision}` }],
+      lastReceipt: {
+        overlayVersion: b.overlayVersion, affectedRoads,
+        originalRemainingEtaS: b.currentEtaS, candidateRemainingEtaS: b.candidateEtaS,
+        policyDecision: b.decision, policyReason: b.reason,
+        savingEstimateS: b.savingS, userAction: 'stay',
+        simTimeS: b.frozenSim, atArc: b.frozenArc,
+      },
     });
     useFleet.getState().pushEvent(fleetSim.current, id, `${id} stayed on route`);
   }
@@ -825,6 +852,47 @@ export default function Fleet() {
                 </ul>
               </div>
             )}
+            {selected && selected.planArcs.length > 0 && (
+              <button className="pf-btn" onClick={() => setExplainOpen(true)} data-testid="fleet-why">
+                Why This Route? ({selected.id})
+              </button>
+            )}
+            {selected?.lastReceipt && (
+              <div data-testid="fleet-receipt">
+                <h3>{selected.id} decision receipt</h3>
+                <dl className="pf-facts">
+                  <dt>Overlay</dt><dd data-testid="fleet-receipt-overlay">v{selected.lastReceipt.overlayVersion}</dd>
+                  <dt>Roads</dt><dd>{selected.lastReceipt.affectedRoads.join(', ') || '—'}</dd>
+                  <dt>Original ETA</dt>
+                  <dd>{selected.lastReceipt.originalRemainingEtaS <= 0 ? 'blocked' : formatSeconds(selected.lastReceipt.originalRemainingEtaS)}</dd>
+                  <dt>Recommended ETA</dt>
+                  <dd>{selected.lastReceipt.candidateRemainingEtaS === null ? 'n/a' : formatSeconds(selected.lastReceipt.candidateRemainingEtaS)}</dd>
+                  <dt>Policy</dt><dd data-testid="fleet-receipt-policy">{selected.lastReceipt.policyDecision} — {selected.lastReceipt.policyReason}</dd>
+                  <dt>Saved (est.)</dt>
+                  <dd>{selected.lastReceipt.savingEstimateS === null ? 'n/a' : formatSeconds(selected.lastReceipt.savingEstimateS)}</dd>
+                  <dt>Action</dt><dd data-testid="fleet-receipt-action">{selected.lastReceipt.userAction}</dd>
+                </dl>
+              </div>
+            )}
+            {selected && selected.planArcs.length > 0 && (
+              <ExplainDrawer open={explainOpen} onClose={() => setExplainOpen(false)} testid="fleet-why"
+                source={selected.origin} target={selected.destination}
+                objective={selected.objective} algorithm="DIJKSTRA"
+                arcs={selected.planArcs.map((arcId) => {
+                  const leg = mut.current.get(selected.id)?.legs[arcId];
+                  return { arcId, from: leg?.from ?? '', to: leg?.to ?? '' };
+                })}
+                vertices={selected.planVertices}
+                totals={{
+                  timeS: selected.durations.reduce((x, y) => x + y, 0),
+                  distanceM: selected.distances.reduce((x, y) => x + y, 0),
+                  tollInr: selected.planArcs.reduce((x, arcId) => {
+                    const road = ROADS.find((r) => r.id === (arcId.split(':')[0] ?? ''));
+                    return x + (road?.tollInr ?? 0);
+                  }, 0),
+                }}
+                alternatives={[]} />
+            )}
           </section>
           <section className="pf-card" aria-label="Event feed" data-testid="fleet-events">
             <h2>Event feed</h2>
@@ -837,6 +905,7 @@ export default function Fleet() {
               ))}
             </ol>
           </section>
+          <VivaCard page="fleet" />
           <Confirm open={confirmStart} title="Start fleet?"
             body="This starts a new simulated fleet run. A journey or demo may be in progress on the shared overlay."
             confirmLabel="Start anyway" testid="fleet-overwrite"

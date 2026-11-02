@@ -9,6 +9,7 @@ import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { VERTICES, formatInr, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
 import { useTours } from '../tours';
+import VivaCard from '../components/VivaCard';
 
 const LegSchema = z.object({
   from: z.string(), to: z.string(),
@@ -252,6 +253,7 @@ export default function MultiStop() {
           )}
         </div>
       </div>
+      <VivaCard page="multistop" />
       <Confirm open={confirmTour !== null} title="Delete tour?"
         body={confirmTour ? `Delete saved tour “${tours.find((t) => t.id === confirmTour)?.name ?? confirmTour}”?` : ''}
         confirmLabel="Delete" testid="tour-delete"
