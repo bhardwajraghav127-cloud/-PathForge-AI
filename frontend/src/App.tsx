@@ -5,6 +5,8 @@ import { useSettings } from './store';
 import { Dashboard, Placeholder } from './pages/pages';
 import RoutePlanner from './pages/RoutePlanner';
 import Journey from './pages/Journey';
+import MultiStop from './pages/MultiStop';
+import Scenarios from './pages/Scenarios';
 
 const LINKS = [
   ['/', 'Dashboard'],
@@ -56,8 +58,8 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/route" element={<RoutePlanner />} />
             <Route path="/journey" element={<Journey />} />
-            <Route path="/multistop" element={<Placeholder title="Multi-Stop Planner" milestone="M9" />} />
-            <Route path="/scenarios" element={<Placeholder title="Scenario Comparison" milestone="M9" />} />
+            <Route path="/multistop" element={<MultiStop />} />
+            <Route path="/scenarios" element={<Scenarios />} />
             <Route path="/lab" element={<Placeholder title="Algorithm Laboratory" milestone="M10" />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

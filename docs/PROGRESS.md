@@ -71,3 +71,10 @@
   traffic edits, pause-on-banner, accept (engine-validated adopt, no teleport)
   / stay (engine reject, policy persisted), summary + persisted decision history
 - Evidence: e2e 3/3 (incl. 29 s full journey), verify-all 7 stages PASS
+
+## 2026-11-02 — M9 (DONE, gate green)
+- Multi-Stop Planner: stop list editor (add/reorder/remove, start/end pins),
+  route.multistop optimize, OPTIMAL/method badge, leg facts, map-follow
+- Scenario Comparison: immutable traffic snapshots + localStorage persistence,
+  scenario.compare across normal/saved, delta display
+- Evidence: e2e 5/5, verify-all 7 stages PASS

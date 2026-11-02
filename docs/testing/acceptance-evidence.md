@@ -60,3 +60,13 @@ banner-frozen position and overlay.
 - AC-16: summary shows chandigarh → delhi, planned/actual times, arcs
   traversed, accepts ≥ 1, stays ≥ 1.
 - Zero console/page errors across the flow.
+
+## 2026-11-02 — AC-17,18 green (5/5 e2e with M6-M8)
+
+- AC-18 (`e2e/multistop.spec.ts`): stops delhi/chandigarh/karnal/ambala,
+  start delhi → engine OPTIMAL held-karp order differs from input; UI order,
+  totals (14737 s, 297711 m, toll 310) and all leg arcs equal the oracle.
+- AC-17 (`e2e/scenarios.spec.ts`): snapshots congested (jam ex06, overlay v2)
+  and closed (+closure ex03, overlay v3) stay isolated (v2 text unchanged after
+  the closure edit); compare rows and Δ time/distance equal the oracle for
+  normal/congested/closed; `pf-scenarios` persists 2 validated entries.
