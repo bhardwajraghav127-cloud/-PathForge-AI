@@ -95,7 +95,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   border: 1px solid var(--pf-line-strong); white-space: nowrap;
 }
 .pf-header .spacer { flex: 1; }
-.pf-hamburger { display: none; }
+.pf-header .pf-hamburger { display: none; }
 .pf-layout { display: flex; flex: 1; min-height: 0; }
 .pf-nav {
   display: flex; flex-direction: column; gap: 2px; padding: 12px 8px;
@@ -266,7 +266,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 @media (max-width: 768px) {
   .pf-main { padding: 12px; }
   .pf-main h2 { font-size: 24px; }
-  .pf-hamburger { display: inline-flex; }
+  .pf-header .pf-hamburger { display: inline-flex; }
   .pf-nav {
     display: none; position: fixed; top: 0; left: 0; bottom: 0; z-index: 80;
     width: 230px; background: var(--pf-paper); box-shadow: var(--pf-shadow-lg);
