@@ -551,6 +551,32 @@ export default function SmartDemo() {
           )}
         </div>
         <div className="pf-panel">
+          {demo.status === 'awaiting_decision' && demo.banner && (
+            <section className="pf-card pf-decision" aria-label="Diversion decision" data-testid="demo-decision">
+              <h2>SIMULATED incident ahead</h2>
+              <p data-testid="demo-decision-text">
+                {demo.banner.decision} — {demo.banner.reason}. Current remaining ETA{' '}
+                {demo.banner.currentEtaS <= 0 ? 'blocked' : formatSeconds(demo.banner.currentEtaS)}
+                {demo.banner.candidateEtaS !== null && (
+                  <>, recommended {formatSeconds(demo.banner.candidateEtaS)}
+                    {demo.banner.savingS !== null && <> (saves ~{formatSeconds(demo.banner.savingS)})</>}</>
+                )}.
+              </p>
+              {autoIn > 0 && (
+                <p className="pf-meta" data-testid="demo-autoin">
+                  AUTO-DEMO choice in {autoIn} s (click either button to decide yourself)
+                </p>
+              )}
+              <div className="pf-row">
+                <button className="pf-btn primary" onClick={() => void accept()} data-testid="demo-accept">
+                  Accept Diversion
+                </button>
+                <button className="pf-btn" onClick={() => void stay()} data-testid="demo-stay">
+                  Stay on Route
+                </button>
+              </div>
+            </section>
+          )}
           <section className="pf-card" aria-label="Smart demo controls">
             <h2>Smart Journey Demo</h2>
             <p className="pf-meta" data-testid="engine-status">Engine: {engineStatus}</p>
@@ -638,35 +664,10 @@ export default function SmartDemo() {
                 onChange={(e) => demo.set({ speed: Number(e.target.value) })} data-testid="demo-speed">
                 {DEMO_SPEEDS.map((v) => <option key={v} value={v}>{v}×</option>)}
               </select>
+              <p className="pf-meta">{demo.speed}×: one wall-clock second advances {demo.speed} simulated seconds.</p>
             </div>
             {demo.error && <div className="pf-alert error" role="alert" data-testid="demo-error">{demo.error}</div>}
           </section>
-          {demo.status === 'awaiting_decision' && demo.banner && (
-            <section className="pf-card" aria-label="Diversion decision" data-testid="demo-decision">
-              <h2>SIMULATED incident ahead</h2>
-              <p data-testid="demo-decision-text">
-                {demo.banner.decision} — {demo.banner.reason}. Current remaining ETA{' '}
-                {demo.banner.currentEtaS <= 0 ? 'blocked' : formatSeconds(demo.banner.currentEtaS)}
-                {demo.banner.candidateEtaS !== null && (
-                  <>, recommended {formatSeconds(demo.banner.candidateEtaS)}
-                    {demo.banner.savingS !== null && <> (saves ~{formatSeconds(demo.banner.savingS)})</>}</>
-                )}.
-              </p>
-              {autoIn > 0 && (
-                <p className="pf-meta" data-testid="demo-autoin">
-                  AUTO-DEMO choice in {autoIn} s (click either button to decide yourself)
-                </p>
-              )}
-              <div className="pf-row">
-                <button className="pf-btn primary" onClick={() => void accept()} data-testid="demo-accept">
-                  Accept Diversion
-                </button>
-                <button className="pf-btn" onClick={() => void stay()} data-testid="demo-stay">
-                  Stay on Route
-                </button>
-              </div>
-            </section>
-          )}
           {demo.receipt && (
             <section className="pf-card" aria-label="Decision receipt" data-testid="demo-receipt">
               <h2>Decision receipt</h2>

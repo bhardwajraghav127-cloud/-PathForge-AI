@@ -199,6 +199,8 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .pf-present .pf-narrate { font-size: 1.35rem; }
 .pf-present .pf-stages li { font-size: 1rem; padding: 8px 14px; }
 .pf-present .pf-btn { font-size: 1.15rem; min-height: 52px; }
+.pf-decision { border: 2px solid var(--pf-warn-ink); background: var(--pf-warn-bg); }
+.pf-decision h2, .pf-decision p { color: var(--pf-ink); }
 .pf-meta { font-size: var(--pf-meta); color: var(--pf-ink-soft); }
 .pf-empty { padding: 18px 12px; text-align: center; color: var(--pf-ink-soft); font-size: var(--pf-body); }
 

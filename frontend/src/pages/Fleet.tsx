@@ -772,6 +772,7 @@ export default function Fleet() {
                   {FLEET_SPEEDS.map((v) => <option key={v} value={v}>{v}×</option>)}
                 </select>
               </div>
+              <p className="pf-meta">{fleet.speed}×: one wall-clock second advances {fleet.speed} simulated seconds.</p>
               <div className="pf-field">
                 <label htmlFor="fleet-show">Routes on map</label>
                 <select id="fleet-show" value={fleet.showMode}
