@@ -151,6 +151,57 @@ export function pointAt(arcId: string, fracPermille: number): [number, number] |
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
 }
 
+let roadBoxes: { id: string; minLon: number; minLat: number; maxLon: number; maxLat: number }[] | null = null;
+function boxes() {
+  if (!roadBoxes) {
+    roadBoxes = REAL_ROADS.map((r) => {
+      const c = REAL_GEOMETRY[r.id]?.coords ?? [];
+      let minLon = 1e9;
+      let minLat = 1e9;
+      let maxLon = -1e9;
+      let maxLat = -1e9;
+      for (const p of c) {
+        if (p[0] < minLon) minLon = p[0];
+        if (p[0] > maxLon) maxLon = p[0];
+        if (p[1] < minLat) minLat = p[1];
+        if (p[1] > maxLat) maxLat = p[1];
+      }
+      return { id: r.id, minLon, minLat, maxLon, maxLat };
+    });
+  }
+  return roadBoxes;
+}
+
+// Nearest road to a click (bbox prefilter + point-segment, metres).
+export function nearestRoad(lng: number, lat: number, maxMeters = 100): { roadId: string; distM: number } | null {
+  const kx = 111320 * Math.cos((lat * Math.PI) / 180);
+  const ky = 111320;
+  const padLon = maxMeters / kx;
+  const padLat = maxMeters / ky;
+  let best: { roadId: string; distM: number } | null = null;
+  for (const b of boxes()) {
+    if (lng < b.minLon - padLon || lng > b.maxLon + padLon || lat < b.minLat - padLat || lat > b.maxLat + padLat) continue;
+    const c = REAL_GEOMETRY[b.id]?.coords ?? [];
+    for (let i = 1; i < c.length; i++) {
+      const a = c[i - 1]!;
+      const d = c[i]!;
+      const ax = (a[0] - lng) * kx;
+      const ay = (a[1] - lat) * ky;
+      const bx = (d[0] - lng) * kx;
+      const by = (d[1] - lat) * ky;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+      const dist = Math.hypot(ax + t * dx, ay + t * dy);
+      if (dist <= maxMeters && (!best || dist < best.distM)) {
+        best = { roadId: b.id, distM: Math.round(dist) };
+      }
+    }
+  }
+  return best;
+}
+
 export function nearestVertex(lat: number, lon: number, maxMeters = 500): RealVertex | null {
   let best: RealVertex | null = null;
   let bestD = maxMeters;
