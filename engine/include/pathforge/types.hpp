@@ -64,11 +64,41 @@ struct Network {
   std::vector<Road> roads;
 };
 
-// Minimal M1 overlay: versioned road closures + per-road speed factors (permille).
+enum class IncidentDir { Both, Forward, Reverse };
+enum class IncidentKind { Jam, Accident, Construction, Partial, Closure };
+
+// Stable-ID incident: directional effect on one road.
+struct Incident {
+  std::string id;
+  std::string road;
+  IncidentDir dir = IncidentDir::Both;
+  IncidentKind kind = IncidentKind::Jam;
+};
+
+// Kind effects: factor permille + additive delay seconds.
+inline int incidentFactorPermille(IncidentKind k) {
+  switch (k) {
+    case IncidentKind::Jam: return 400;
+    case IncidentKind::Accident: return 200;
+    case IncidentKind::Construction: return 600;
+    case IncidentKind::Partial: return 500;
+    case IncidentKind::Closure: return 0;
+  }
+  return 1000;
+}
+inline std::int64_t incidentDelayS(IncidentKind k) {
+  return k == IncidentKind::Accident ? 600 : 0;
+}
+
+// Overlay: whole-road closures + whole-road factors + directional incidents.
+// closures[] entries are road IDs (BOTH directions); directional control uses
+// incidents. Multiple effects on one arc: minimum factor, summed delays,
+// closure wins.
 struct Overlay {
   std::int64_t version = 0;
-  std::vector<std::string> closures;  // road IDs closed in BOTH directions (M1)
+  std::vector<std::string> closures;  // road IDs closed in BOTH directions
   std::vector<std::pair<std::string, int>> factors;  // roadId -> permille 1..1000
+  std::vector<Incident> incidents;
 };
 
 struct Arc {

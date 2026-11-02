@@ -10,15 +10,17 @@ fi
 command -v emcc >/dev/null 2>&1 || { echo "BLOCKED: emcc missing"; exit 1; }
 OUT="$ROOT/frontend/src/worker/wasm"
 mkdir -p "$OUT"
-em++ "$ROOT/engine/src/graph.cpp" \
-     "$ROOT/engine/src/dijkstra.cpp" \
-     "$ROOT/engine/src/objectives.cpp" \
-     "$ROOT/engine/src/traversal.cpp" \
-     "$ROOT/engine/src/astar.cpp" \
-     "$ROOT/engine/src/lab.cpp" \
-     "$ROOT/engine/src/position.cpp" \
-     "$ROOT/engine/src/engine.cpp" \
-     "$ROOT/engine/src/bindings/abi.cpp" \
+# All engine sources except the native-only contract runner.
+# shellcheck disable=SC2206
+SRCS=( "$ROOT"/engine/src/*.cpp "$ROOT"/engine/src/bindings/*.cpp )
+FILTERED=()
+for f in "${SRCS[@]}"; do
+  case "$f" in
+    *contract_runner.cpp) ;;
+    *) FILTERED+=( "$f" ) ;;
+  esac
+done
+em++ "${FILTERED[@]}" \
   -I"$ROOT/engine/include" \
   -I"$ROOT/engine/build/native-release/_deps/nlohmann_json-src/include" \
   -std=c++17 -O2 \

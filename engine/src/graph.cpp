@@ -5,6 +5,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <utility>
 
 namespace pathforge {
 namespace {
@@ -76,68 +77,99 @@ std::pair<Graph, std::vector<ValidationIssue>> Graph::build(const Network& net, 
   for (std::size_t i = 0; i < net.vertices.size(); ++i)
     vid[net.vertices[i].id] = static_cast<int>(i);
 
-  std::map<std::string, int> factor;
-  for (const auto& f : ov.factors) factor[f.first] = f.second;
-  std::set<std::string> closed(ov.closures.begin(), ov.closures.end());
+  std::map<std::string, int> roadFactor;
+  for (const auto& f : ov.factors) roadFactor[f.first] = f.second;
+  std::set<std::string> roadClosed(ov.closures.begin(), ov.closures.end());
+
+  // Incident references must be valid; ids stable and unique.
+  {
+    std::set<std::string> seen;
+    std::set<std::string> roadIds;
+    for (const auto& r : net.roads) roadIds.insert(r.id);
+    for (const auto& in : ov.incidents) {
+      if (in.id.empty() || !seen.insert(in.id).second)
+        return {Graph{}, {{{"DUPLICATE_ID", "duplicate incident id: " + in.id}}}};
+      if (roadIds.find(in.road) == roadIds.end())
+        return {Graph{},
+                {{{"UNKNOWN_ROAD", "incident " + in.id + " unknown road: " + in.road}}}};
+    }
+  }
+
+  auto dirApplies = [](IncidentDir d, bool fwd) {
+    return d == IncidentDir::Both || (d == IncidentDir::Forward) == fwd;
+  };
 
   // Expand arcs in road-input order, then canonicalize by arc-ID sort.
   struct Raw {
     Arc arc;
     EffectiveCost c;
+    std::vector<std::string> incidentIds;
   };
   std::vector<Raw> raws;
   raws.reserve(net.roads.size() * 2);
   for (std::size_t ri = 0; ri < net.roads.size(); ++ri) {
     const Road& r = net.roads[ri];
-    bool shut = closed.count(r.id) > 0 || !r.available;
-    int permille = 1000;
-    auto fit = factor.find(r.id);
-    if (fit != factor.end()) {
+    int basePermille = 1000;
+    auto fit = roadFactor.find(r.id);
+    if (fit != roadFactor.end()) {
       if (fit->second < 1 || fit->second > 1000) {
         return {Graph{}, {{{"BAD_RANGE", "factor for road " + r.id + " must be 1..1000"}}}};
       }
-      permille = fit->second;
+      basePermille = fit->second;
     }
-    EffectiveCost ec;
-    ec.usable = !shut;
-    ec.distanceM = r.distanceM;
-    ec.tollInr = r.tollInr;
-    ec.baselineTimeS = r.baselineTimeS;
-    ec.timeS = shut ? kInf64 : scaledTime(r.baselineTimeS, permille);
-    int a = vid[r.from];
-    int b = vid[r.to];
-    Arc fwd;
-    fwd.id = r.id + ":f";
-    fwd.roadId = r.id;
-    fwd.from = a;
-    fwd.to = b;
-    fwd.roadIdx = ri;
-    fwd.forward = true;
-    raws.push_back({fwd, ec});
-    if (!r.oneWay) {
-      Arc rev = fwd;
-      rev.id = r.id + ":r";
-      rev.from = b;
-      rev.to = a;
-      rev.forward = false;
-      raws.push_back({rev, ec});
+    bool roadShut = roadClosed.count(r.id) > 0 || !r.available;
+    // Per direction: min factor, summed delays, closure wins.
+    for (int pass = 0; pass < (r.oneWay ? 1 : 2); ++pass) {
+      bool fwd = (pass == 0);
+      int permille = basePermille;
+      std::int64_t delay = 0;
+      bool shut = roadShut;
+      std::vector<std::string> ids;
+      for (const auto& in : ov.incidents) {
+        if (in.road != r.id || !dirApplies(in.dir, fwd)) continue;
+        ids.push_back(in.id);
+        if (in.kind == IncidentKind::Closure) {
+          shut = true;
+        } else {
+          int kf = incidentFactorPermille(in.kind);
+          if (kf < permille) permille = kf;
+          delay += incidentDelayS(in.kind);
+        }
+      }
+      EffectiveCost ec;
+      ec.usable = !shut;
+      ec.distanceM = r.distanceM;
+      ec.tollInr = r.tollInr;
+      ec.baselineTimeS = r.baselineTimeS;
+      ec.factorPermille = permille;
+      ec.delayS = shut ? 0 : delay;
+      if (shut) {
+        ec.timeS = kInf64;
+      } else {
+        std::int64_t scaled = scaledTime(r.baselineTimeS, permille);
+        __int128 t = static_cast<__int128>(scaled) + delay;
+        ec.timeS = t > static_cast<__int128>(kInf64) ? kInf64 : static_cast<std::int64_t>(t);
+      }
+      Arc a;
+      a.id = r.id + (fwd ? ":f" : ":r");
+      a.roadId = r.id;
+      a.from = vid[r.from];
+      a.to = vid[r.to];
+      if (!fwd) std::swap(a.from, a.to);
+      a.roadIdx = ri;
+      a.forward = fwd;
+      raws.push_back({a, ec, ids});
     }
   }
   std::sort(raws.begin(), raws.end(),
             [](const Raw& x, const Raw& y) { return x.arc.id < y.arc.id; });
   g.arcs_.reserve(raws.size());
   g.costs_.reserve(raws.size());
-  g.factors_.reserve(raws.size());
+  g.arcIncidentIds_.reserve(raws.size());
   for (auto& r : raws) {
     g.arcs_.push_back(r.arc);
     g.costs_.push_back(r.c);
-  }
-  // Factors recorded per road for congestion classification (default 1000).
-  std::map<std::string, int> fmap;
-  for (const auto& f : ov.factors) fmap[f.first] = f.second;
-  for (const auto& a : g.arcs_) {
-    auto it = fmap.find(a.roadId);
-    g.factors_.push_back(it == fmap.end() ? 1000 : it->second);
+    g.arcIncidentIds_.push_back(r.incidentIds);
   }
   g.adj_.assign(g.vertices_.size(), {});
   for (std::size_t i = 0; i < g.arcs_.size(); ++i) {
@@ -166,10 +198,28 @@ const std::vector<int>& Graph::outgoing(int vertexIdx) const {
 EffectiveCost Graph::cost(int arcIdx) const { return costs_.at(static_cast<std::size_t>(arcIdx)); }
 
 int Graph::factorPermille(int arcIdx) const {
-  return factors_.at(static_cast<std::size_t>(arcIdx));
+  return costs_.at(static_cast<std::size_t>(arcIdx)).factorPermille;
 }
 const Road& Graph::roadOf(int arcIdx) const {
   return roads_.at(arcs_.at(static_cast<std::size_t>(arcIdx)).roadIdx);
+}
+const std::vector<std::string>& Graph::arcIncidents(int arcIdx) const {
+  return arcIncidentIds_.at(static_cast<std::size_t>(arcIdx));
+}
+
+Graph Graph::subgraph(const std::set<std::string>& bannedArcs,
+                       const std::set<std::string>& bannedVertexIds) const {
+  Graph s = *this;  // indices stable; adjacency rebuilt below
+  s.adj_.assign(s.vertices_.size(), {});
+  for (std::size_t i = 0; i < s.arcs_.size(); ++i) {
+    if (!s.costs_[i].usable) continue;
+    if (bannedArcs.count(s.arcs_[i].id) > 0) continue;
+    if (bannedVertexIds.count(s.vertexIds_[static_cast<std::size_t>(s.arcs_[i].from)]) > 0)
+      continue;
+    if (bannedVertexIds.count(s.vertexIds_[static_cast<std::size_t>(s.arcs_[i].to)]) > 0) continue;
+    s.adj_[static_cast<std::size_t>(s.arcs_[i].from)].push_back(static_cast<int>(i));
+  }
+  return s;
 }
 
 }  // namespace pathforge

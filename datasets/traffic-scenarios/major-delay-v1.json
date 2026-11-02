@@ -1,0 +1,1 @@
+{"id":"major-delay-v1","description":"SIMULATED major delay: accident on the Rajpura-Karnal express segment. Expected effect on the active Chandigarh-Delhi fastest plan: +30 minutes or more (finite, not blocked).","overlay":{"version":3,"incidents":[{"id":"major-acc-1","road":"ex03","dir":"both","kind":"accident"}]}}

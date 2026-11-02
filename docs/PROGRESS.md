@@ -26,3 +26,11 @@
 - Evidence: 31/31 gtest, 31/31 ASan+UBSan, 15/15 native<->WASM parity, verify-all all PASS
 - Fixes: build-wasm.sh now compiles all engine sources (was M1 subset)
 - Next 5: M3 dataset + guarantees; Yen alternatives; incidents overlay; route.compare; scenario.compare
+
+## 2026-11-02 — M3 (DONE, gate green)
+- Incidents: directional stable-ID effects (min factor, summed delays, closure wins); per-arc attribution; validation
+- Yen K-shortest loopless paths + diversity filter + route.alternatives; brute-force oracle agreement
+- route.compare (computed deltas, shared/unique arcs, incident attribution); scenario.compare (immutable overlays, shared solveRoute)
+- Dataset north-india-sim-v1 (20v/42r, 3 corridors, 4 one-ways, 4 parallel pairs, Jind leaf) + marginal/major presets + provenance; 9/9 guarantees green
+- Evidence: 46/46 gtest, 46/46 ASan+UBSan, 20/20 parity, verify-all all PASS
+- Next 5: M4 diversion engine + notification policy + presets; engine.info commands refresh; docs update; commit M3

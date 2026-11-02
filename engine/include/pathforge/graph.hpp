@@ -12,6 +12,7 @@
 //   Q: How are parallel roads handled? A: distinct arc IDs, both kept, tie-break decides.
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -21,10 +22,12 @@ namespace pathforge {
 
 struct EffectiveCost {
   bool usable = false;
-  std::int64_t timeS = 0;      // traffic-adjusted seconds for FASTEST
-  std::int64_t distanceM = 0;  // metres for SHORTEST
+  std::int64_t timeS = 0;  // scaled baseline + incident delays
+  std::int64_t distanceM = 0;
   std::int64_t tollInr = 0;
   std::int64_t baselineTimeS = 0;
+  std::int64_t delayS = 0;  // incident delays included in timeS
+  int factorPermille = 1000;
 };
 
 struct ValidationIssue {
@@ -52,6 +55,11 @@ class Graph {
   EffectiveCost cost(int arcIdx) const;
   int factorPermille(int arcIdx) const;
   const Road& roadOf(int arcIdx) const;
+  const std::vector<std::string>& arcIncidents(int arcIdx) const;
+  // Filtered copy: drops banned arcs and arcs touching banned vertices
+  // (indices stable; for Yen spur paths).
+  Graph subgraph(const std::set<std::string>& bannedArcs,
+                 const std::set<std::string>& bannedVertexIds) const;
 
  private:
   std::vector<Vertex> vertices_;
@@ -59,7 +67,7 @@ class Graph {
   std::vector<Arc> arcs_;
   std::vector<std::vector<int>> adj_;
   std::vector<EffectiveCost> costs_;
-  std::vector<int> factors_;
+  std::vector<std::vector<std::string>> arcIncidentIds_;
   std::vector<Road> roads_;
 };
 

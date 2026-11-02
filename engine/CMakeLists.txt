@@ -30,6 +30,7 @@ add_library(pathforge_lib
   src/astar.cpp
   src/lab.cpp
   src/position.cpp
+  src/yen.cpp
   src/engine.cpp
   src/bindings/abi.cpp
 )
@@ -60,7 +61,11 @@ if(PF_BUILD_TESTS)
     tests/test_astar.cpp
     tests/test_lab.cpp
     tests/test_position.cpp
+    tests/test_yen.cpp
+    tests/test_incidents.cpp
+    tests/test_dataset.cpp
   )
+  target_compile_definitions(pf_tests PRIVATE "PF_DATASET_DIR=\"${CMAKE_SOURCE_DIR}/../datasets\"")
   target_link_libraries(pf_tests PRIVATE pathforge_lib GTest::gtest_main)
   target_compile_options(pf_tests PRIVATE ${PF_WARN_FLAGS})
   include(GoogleTest)

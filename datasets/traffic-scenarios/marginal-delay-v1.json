@@ -1,0 +1,1 @@
+{"id":"marginal-delay-v1","description":"SIMULATED marginal delay: moderate factor on the Sonipat-Delhi express segment. Expected effect on the active Chandigarh-Delhi fastest plan: +1 to 9 minutes (finite, not blocked).","overlay":{"version":2,"factors":{"ex07":850}}}
