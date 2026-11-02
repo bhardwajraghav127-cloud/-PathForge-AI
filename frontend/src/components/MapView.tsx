@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 import { DATASET, type Dataset } from '../data/dataset';
+import { useSettings } from '../store';
 
 declare global {
   interface Window {
@@ -29,18 +30,32 @@ export default function MapView({
   const ref = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const net = network ?? DATASET;
+  const theme = useSettings((s) => s.theme);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Canvas fills cannot resolve CSS var(); read the resolved tokens once.
+    const cs = getComputedStyle(el);
+    const col = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
+    const nodeCol = col('--pf-map-node', '#33413b');
+    const edgeCol = col('--pf-map-edge', '#9aa5a0');
+    const routeCol = col('--pf-route', '#0b5fff');
+    const inkCol = col('--pf-ink', '#1c2420');
+    const accentCol = col('--pf-accent', '#0f6b4a');
     const lats = net.vertices.map((v) => v.lat);
     const lons = net.vertices.map((v) => v.lon);
     const minLat = Math.min(...lats);
     const minLon = Math.min(...lons);
     const lat0 = lats.reduce((a, b) => a + b, 0) / lats.length;
-    const nodes = net.vertices.map((v) => {
-      const p = project(v.lat, v.lon, minLon, minLat, lat0);
-      return { data: { id: v.id, label: v.name ?? v.id }, position: p };
+    const raw = net.vertices.map((v) => project(v.lat, v.lon, minLon, minLat, lat0));
+    const xs = raw.map((p) => p.x);
+    const ys = raw.map((p) => p.y);
+    const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1e-9);
+    const k = 1000 / span;
+    const nodes = net.vertices.map((v, i) => {
+      const p = raw[i] as { x: number; y: number };
+      return { data: { id: v.id, label: v.name ?? v.id }, position: { x: p.x * k, y: p.y * k } };
     });
     const edges = net.roads.flatMap((r) => {
       const out = [{ data: { id: `${r.id}:f`, source: r.from, target: r.to, roadId: r.id } }];
@@ -51,15 +66,15 @@ export default function MapView({
       container: el,
       elements: [...nodes, ...edges],
       layout: { name: 'preset' },
-      minZoom: 0.2,
-      maxZoom: 4,
+      minZoom: 0.01,
+      maxZoom: 6,
       style: [
         {
           selector: 'node',
           style: {
-            'background-color': 'var(--pf-map-node)',
+            'background-color': nodeCol,
             label: 'data(label)',
-            color: 'var(--pf-ink)',
+            color: inkCol,
             'font-size': 11,
             width: 14,
             height: 14,
@@ -68,8 +83,8 @@ export default function MapView({
         {
           selector: 'edge',
           style: {
-            'line-color': 'var(--pf-map-edge)',
-            'target-arrow-color': 'var(--pf-map-edge)',
+            'line-color': edgeCol,
+            'target-arrow-color': edgeCol,
             'target-arrow-shape': 'triangle',
             width: 2,
             'curve-style': 'bezier',
@@ -79,21 +94,21 @@ export default function MapView({
         {
           selector: 'edge.route',
           style: {
-            'line-color': 'var(--pf-route)',
-            'target-arrow-color': 'var(--pf-route)',
+            'line-color': routeCol,
+            'target-arrow-color': routeCol,
             width: 5,
           },
         },
         {
           selector: 'node.visited',
           style: {
-            'background-color': 'var(--pf-accent)',
+            'background-color': accentCol,
           },
         },
         {
           selector: 'node.current',
           style: {
-            'background-color': 'var(--pf-route)',
+            'background-color': routeCol,
             width: 22,
             height: 22,
           },
@@ -103,6 +118,7 @@ export default function MapView({
     cyRef.current = cy;
     if (cyOut) cyOut.current = cy;
     window.__PF_DEBUG__ = { cy };
+    cy.fit(undefined, 30);
     return () => {
       window.__PF_DEBUG__ = { cy: null };
       if (cyOut) cyOut.current = null;
@@ -110,7 +126,7 @@ export default function MapView({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [net]);
+  }, [net, theme]);
 
   useEffect(() => {
     const cy = cyRef.current;
