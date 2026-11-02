@@ -92,3 +92,12 @@
 - Lab custom-network editor (add vertex/road, remove road, engine validate)
   + E2E: custom 3-node BFS order contains the added vertex
 - Traceability: 41 VERIFIED; remaining: REQ-20 (bench), REQ-23/24 + AC-20 (M11)
+
+## 2026-11-02 — M11 (DONE, gate green)
+- Bench tool (pf_bench, seeded grids 100/1024/4900) + BENCH.md artifact
+- Coverage measured (gtest + 32 fixtures + bench): 7 algorithm files >=90%
+  lines; gap file (yen/lab/diversion/engine) documented in C3 report
+- a11y E2E (keyboard plan, theme persistence, aria, reduced-motion, 390px) +
+  14-step hero demo E2E; journey Reset while running; demo traffic cleanup
+- Audit: react-router 7.18.5 + zod v4 + vite 7, 0 vulnerabilities, E2E re-green
+- Antifake + bench stages in verify-all (9 stages); 65/65 gtest

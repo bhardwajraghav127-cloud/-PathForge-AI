@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-all.sh (M6 scope): runs all CURRENTLY IMPLEMENTED mandatory stages.
+# verify-all.sh (M11 scope): runs all CURRENTLY IMPLEMENTED mandatory stages.
 # Later stages print NOT_APPLICABLE (never falsely PASSED). Fails fast.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,6 +20,8 @@ run "wasm-build" build-wasm.sh
 run "contract-parity" test-contract.sh
 run "frontend-build" build-frontend.sh
 run "e2e" test-e2e.sh
+run "bench" bench-engine.sh
+run "antifake" antifake.sh
 
 echo; echo "########## SUMMARY ##########"
 echo "PASS: ${pass[*]:-none}"

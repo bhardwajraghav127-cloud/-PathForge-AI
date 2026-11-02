@@ -45,6 +45,10 @@ target_compile_options(pathforge_lib PRIVATE ${PF_WARN_FLAGS})
 add_executable(pf_contract_runner src/contract_runner.cpp)
 target_link_libraries(pf_contract_runner PRIVATE pathforge_lib)
 
+add_executable(pf_bench bench/bench.cpp)
+target_link_libraries(pf_bench PRIVATE pathforge_lib)
+target_compile_options(pf_bench PRIVATE ${PF_WARN_FLAGS})
+
 # Tests
 option(PF_BUILD_TESTS "Build GoogleTest suite" ON)
 if(PF_BUILD_TESTS)

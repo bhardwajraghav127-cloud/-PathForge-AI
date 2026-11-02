@@ -23,10 +23,10 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | REQ-17 | What-if scenarios + comparison | §1.17 | M5/M9 | A3 | VERIFIED | contract scn-001 + E2E scenarios.spec deltas | M9 |
 | REQ-18 | Graph editor + validation | §1.18 | M10 | A3 | VERIFIED | Lab graph editor + network.validate + E2E lab.spec custom BFS | M10 |
 | REQ-19 | ADSA lab BFS/DFS/Dijkstra/A*/Prim/Kruskal+ | §1.19 | M5/M10 | A2 | VERIFIED | engine/tests/test_mst.cpp + test_traversal.cpp + E2E lab.spec AC-19 | M10 |
-| REQ-20 | Comparisons + measured benchmarks | §1.20 | M5 | A5 | NOT_STARTED | — | — |
+| REQ-20 | Comparisons + measured benchmarks | §1.20 | M5 | A5 | VERIFIED | docs/benchmarks/BENCH.md (dijkstra/astar/prim/kruskal 100-4900 nodes) + lab.compare agreement | M5 |
 | REQ-21 | MST/network visualizations | §1.21 | M10 | A4 | VERIFIED | Lab/MST/route map highlights + E2E AC-05/lab.spec | M10 |
 | REQ-22 | Tested C++ engine, native↔WASM agreement | §1.22 | M1 | A2/A5 | VERIFIED | test-contract.sh 32/32 native-WASM parity + 63/63 gtest | M1 |
-| REQ-23 | Hero demo Chandigarh→Delhi + marginal/major cases | §1 hero | M11 | A6 | NOT_STARTED | — | — |
+| REQ-23 | Hero demo Chandigarh→Delhi + marginal/major cases | §1 hero | M11 | A6 | VERIFIED | docs/testing/c3-demo-report.md + e2e/demo.spec.ts 14 steps | M11 |
 | REQ-24 | Simulated-data notice + provenance + README | honesty | M11 | A6 | NOT_STARTED | — | — |
 | AC-01 | Launch without console errors | §16 | M11 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | AC-02 | Network renders correct counts | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
@@ -47,5 +47,5 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | AC-17 | Scenario comparison deltas | §16 | M9 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
 | AC-18 | Small multi-stop OPTIMAL | §16 | M9 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
 | AC-19 | Lab BFS/DFS/Dijkstra/A*/Prim/Kruskal | §16 | M10 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
-| AC-20 | C++ algorithms tested | §16 | M11 | A5 | NOT_STARTED | — | — |
+| AC-20 | C++ algorithms tested | §16 | M11 | A5 | VERIFIED | 65/65 gtest + sanitizer + docs/testing/coverage.md (measured) | M11 |
 | M0-DOCS | M0 docs + constitution + ledger | §3 | M0 | Orch | IN_PROGRESS | this repo | — |

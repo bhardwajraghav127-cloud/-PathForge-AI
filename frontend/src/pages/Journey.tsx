@@ -25,7 +25,7 @@ const DivSchema = z.object({
   currentEtaS: z.number().catch(0), candidateEtaS: z.number().nullable().catch(null),
   notify: z.boolean().catch(false), notificationReason: z.string().catch(''),
   candidate: z.object({ arcs: z.array(z.object({ arcId: z.string() })).catch([]) }).nullable().catch(null),
-  policy: z.record(z.unknown()).catch({}),
+  policy: z.record(z.string(), z.unknown()).catch({}),
 }).passthrough();
 
 const AcceptSchema = z.object({
@@ -342,7 +342,7 @@ export default function Journey() {
               {sim.status === 'paused' && !sim.banner && (
                 <button className="pf-btn primary" onClick={() => { m.current.lastWall = performance.now(); sim.set({ status: 'running' }); }} data-testid="journey-resume">Resume</button>
               )}
-              {(sim.status === 'paused' || sim.status === 'completed' || sim.status === 'error') && (
+              {(sim.status === 'running' || sim.status === 'paused' || sim.status === 'completed' || sim.status === 'error') && (
                 <button className="pf-btn" onClick={() => sim.set({ status: 'idle', banner: null, summary: null, guidance: '' })} data-testid="journey-reset">Reset</button>
               )}
             </div>

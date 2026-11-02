@@ -83,3 +83,31 @@ TEST(Mst, ForestOnDisconnected) {
   EXPECT_TRUE(p.forest);
   EXPECT_TRUE(p.edges.empty());
 }
+
+TEST(Mst, TraceTruncationFlag) {
+  auto built = Graph::build(small(), Overlay{});
+  ASSERT_TRUE(built.second.empty());
+  const Graph& g = built.first;
+  MstResult p = primMst(g, 1);
+  MstResult k = kruskalMst(g, 1);
+  EXPECT_TRUE(p.truncated);
+  EXPECT_TRUE(k.truncated);
+  // Full budget is not truncated.
+  EXPECT_FALSE(primMst(g).truncated);
+  EXPECT_FALSE(kruskalMst(g).truncated);
+}
+
+TEST(Mst, OneDirectionClosureStillSpans) {
+  Overlay ov;
+  ov.incidents.push_back({"i1", "ab", IncidentDir::Forward, IncidentKind::Closure});
+  auto built = Graph::build(small(), ov);
+  ASSERT_TRUE(built.second.empty());
+  const Graph& g = built.first;
+  MstResult p = primMst(g);
+  MstResult k = kruskalMst(g);
+  // Road ab survives via its usable reverse direction: same MST weight.
+  EXPECT_FALSE(p.forest);
+  EXPECT_FALSE(k.forest);
+  EXPECT_EQ(p.totalWeightM, 10);
+  EXPECT_EQ(k.totalWeightM, 10);
+}
