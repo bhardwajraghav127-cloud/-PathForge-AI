@@ -142,7 +142,7 @@ export default function RealLab() {
   function ensureRaceLayers() {
     const map = mapOut.current;
     if (!map) return;
-    const defs: [string, string][] = [['reallab-d', '#4f46e5'], ['reallab-a', '#ea580c']];
+    const defs: [string, string][] = [['reallab-d', '#2563eb'], ['reallab-a', '#ea580c']];
     for (const [id, color] of defs) {
       if (!map.getSource(id)) {
         map.addSource(id, { type: 'geojson', data: emptyFC() });
@@ -399,7 +399,7 @@ export default function RealLab() {
                   data-testid="reallab-scrub" />
               </div>
               <p className="pf-meta">
-                Indigo dots settle in Dijkstra order, orange in A* order — the recorded engine
+                Blue dots settle in Dijkstra order, orange in A* order — the recorded engine
                 sequence, not an approximation. Dijkstra has no early exit, so it settles every
                 reachable vertex; A* stops at the target.
               </p>

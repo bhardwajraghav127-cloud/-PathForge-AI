@@ -319,6 +319,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   }
   .pf-nav.open { display: flex; }
   .pf-map { height: 380px; }
+  .pf-map-tall { height: 380px; min-height: 0; }
   .pf-drawer { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 45%; }
   .pf-legend { display: none; }
   .pf-legend.compact { display: flex; font-size: 12px; padding: 6px 8px; }
@@ -329,6 +330,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   .pf-badge { font-size: 10px; }
   .pf-facts { grid-template-columns: 1fr; }
   .pf-map { height: 320px; }
+  .pf-map-tall { height: 300px; min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
