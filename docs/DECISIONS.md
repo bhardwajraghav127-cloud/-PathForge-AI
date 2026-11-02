@@ -21,3 +21,9 @@
 - Priority: (1) later user instructions; (2) safety/sandbox; (3) prompt decisions; (4) SPEC.md if supplied
 - No SPEC.md supplied: provisional ledger derived from master prompt, labeled as such
 - Conflicts SPEC-vs-prompt: none (no SPEC); future conflicts logged here, never silent
+
+## ADR-004 (2026-11-02, C0 approvals granted by user)
+- Installs APPROVED: brew cmake+ninja, ~/emsdk Emscripten, per-project npm + pinned C++ deps; network use approved
+- License APPROVED: MIT
+- Autonomy APPROVED: build M1→M12 in verified slices
+- Installed: cmake 4.4.5, ninja 1.13.2, emcc 6.0.13 (sdk-releases-eb132757325583b787fe9414b09afea9442b72ad-64bit)
