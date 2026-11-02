@@ -32,6 +32,7 @@ export function Dashboard() {
 
       <div className="pf-row" data-testid="dash-ctas" style={{ marginBottom: 12 }}>
         <Link className="pf-btn primary" to="/demo" data-testid="dash-cta-demo">Start Smart Demo</Link>
+        <Link className="pf-btn" to="/fleet" data-testid="dash-cta-fleet">Launch Fleet Simulation</Link>
         <Link className="pf-btn" to="/lab" data-testid="dash-cta-algo">Explore Algorithms</Link>
       </div>
 

@@ -6,6 +6,7 @@ import { Toaster } from './components/ui';
 import { Dashboard, Placeholder } from './pages/pages';
 import RoutePlanner from './pages/RoutePlanner';
 import SmartDemo from './pages/SmartDemo';
+import Fleet from './pages/Fleet';
 import Journey from './pages/Journey';
 import MultiStop from './pages/MultiStop';
 import Scenarios from './pages/Scenarios';
@@ -14,6 +15,7 @@ import Lab from './pages/Lab';
 const LINKS = [
   ['/', 'Dashboard'],
   ['/demo', 'Smart Demo'],
+  ['/fleet', 'Fleet'],
   ['/route', 'Route Planner'],
   ['/journey', 'Journey'],
   ['/multistop', 'Multi-Stop'],
@@ -72,6 +74,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/demo" element={<SmartDemo />} />
+            <Route path="/fleet" element={<Fleet />} />
             <Route path="/route" element={<RoutePlanner />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/multistop" element={<MultiStop />} />
