@@ -25,3 +25,7 @@ __pycache__/
 *.pem
 # Logs
 *.log
+
+# Generated contract outputs (recreated by test-contract.sh)
+*.native.json
+*.wasm.json

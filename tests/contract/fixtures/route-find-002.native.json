@@ -1,1 +1,0 @@
-{"apiVersion":1,"ok":true,"requestId":"route-find-002","result":{"arcs":[],"baselineTimeS":0,"delayS":0,"distanceM":0,"found":false,"objectiveCost":0,"objectiveDescription":"SHORTEST: minimize total metres","reason":"UNREACHABLE","timeS":0,"tollInr":0,"vertices":[]},"stats":{"elapsedUs":12,"heapOps":1,"relaxedEdges":0,"visitedVertices":1}}
