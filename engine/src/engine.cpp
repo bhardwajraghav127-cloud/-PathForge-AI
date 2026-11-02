@@ -15,6 +15,7 @@
 #include "pathforge/lab.hpp"
 #include "pathforge/objectives.hpp"
 #include "pathforge/diversion.hpp"
+#include "pathforge/multistop.hpp"
 #include "pathforge/position.hpp"
 #include "pathforge/traversal.hpp"
 #include "pathforge/yen.hpp"
@@ -331,8 +332,8 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
                   {"build", kBuild},
                   {"commands",
                    {"engine.info", "network.validate", "route.find", "route.alternatives",
-                    "route.evaluate", "route.compare", "lab.run", "scenario.compare",
-                    "diversion.evaluate"}}},
+                    "route.evaluate", "route.compare", "route.multistop", "lab.run",
+                    "lab.compare", "scenario.compare", "diversion.evaluate"}}},
                  stats)
         .dump();
   }
@@ -395,7 +396,34 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
   }
 
   if (cmd == "lab.run") {
-    for (const char* k : {"network", "algorithm", "source"}) {
+    if (!payload.contains("algorithm"))
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "payload.algorithm is required").dump();
+    std::string lalg = payload.at("algorithm").get<std::string>();
+    std::int64_t maxEvents = payload.value("maxEvents", 20000LL);
+    if (lalg == "BINSEARCH") {
+      // Graph-free algorithm demo: no network required.
+      if (!payload.contains("values") || !payload.at("values").is_array() ||
+          !payload.contains("target"))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      "BINSEARCH requires values[] and target")
+            .dump();
+      if (payload.at("values").size() > 100000)
+        return errEnv(kApiVersion, rid, "LIMIT_EXCEEDED", "values capped at 100000").dump();
+      std::vector<std::int64_t> values;
+      for (const auto& v : payload.at("values")) values.push_back(v.get<std::int64_t>());
+      LabOutcome lo =
+          runBinsearch(values, payload.at("target").get<std::int64_t>(), maxEvents);
+      if (!lo.ok) return errEnv(kApiVersion, rid, lo.errorCode, lo.errorDetail).dump();
+      json result{{"algorithm", lo.algorithm},
+                  {"index", lo.searchIndex},
+                  {"exact", lo.searchExact},
+                  {"trace", traceToJson(lo.trace)}};
+      json stats = {{"elapsedUs", elapsedUs}};
+      std::vector<std::string> warnings;
+      if (lo.truncated) warnings.push_back("TRACE_TRUNCATED");
+      return okEnv(kApiVersion, rid, result, stats, warnings).dump();
+    }
+    for (const char* k : {"network", "source"}) {
       if (!payload.contains(k))
         return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
                       std::string("payload.") + k + " is required")
@@ -409,7 +437,6 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
       return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", is.front().message).dump();
     }
     const Graph& g = built.first;
-    std::string lalg = payload.at("algorithm").get<std::string>();
     std::string objName = payload.value("objective", "FASTEST");
     BalancedParams bp;
     if (payload.contains("objectiveParams")) {
@@ -420,7 +447,8 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
       bp.avoidSevere = op.value("avoidSevere", false);
     }
     ResolvedObjective ro = resolveObjective(g, objName, bp);
-    if (!ro.error.empty() && lalg != "BFS" && lalg != "DFS")
+    if (!ro.error.empty() && lalg != "BFS" && lalg != "DFS" && lalg != "MST_PRIM" &&
+        lalg != "MST_KRUSKAL" && lalg != "TOPO_SORT")
       return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", ro.error).dump();
     std::string src = payload.at("source").get<std::string>();
     int si = g.vertexIndex(src);
@@ -432,7 +460,6 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
       if (di < 0)
         return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown target: " + dst).dump();
     }
-    std::int64_t maxEvents = payload.value("maxEvents", 20000LL);
     LabOutcome lo = runLab(g, lalg, si, di, ro, maxEvents);
     if (!lo.ok) {
       std::string code = lo.errorCode.empty() ? "INTERNAL_ERROR" : lo.errorCode;
@@ -440,7 +467,18 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
     }
     json result{{"algorithm", lo.algorithm}, {"trace", traceToJson(lo.trace)}};
     if (!lo.order.empty()) result["order"] = lo.order;
+    if (lalg == "TOPO_SORT") result["hasCycle"] = lo.hasCycle;
     if (lo.hasRoute) result["route"] = routeToJson(lo.route);
+    if (lalg == "MST_PRIM" || lalg == "MST_KRUSKAL") {
+      json edges = json::array();
+      for (const auto& e : lo.mstEdges)
+        edges.push_back({{"roadId", e.roadId},
+                         {"from", e.from},
+                         {"to", e.to},
+                         {"weightM", e.weightM}});
+      result["mst"] = {
+          {"edges", edges}, {"totalWeightM", lo.mstWeight}, {"forest", lo.mstForest}};
+    }
     if (lo.heuristicZero || lo.truncated) {
       std::vector<std::string> w;
       if (lo.heuristicZero) w.push_back("HEURISTIC_ZERO");
@@ -884,8 +922,179 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
     return okEnv(kApiVersion, rid, dout.result, stats).dump();
   }
 
+  if (cmd == "route.multistop") {
+    for (const char* k : {"network", "stops"}) {
+      if (!payload.contains(k))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      std::string("payload.") + k + " is required")
+            .dump();
+    }
+    Network net = parseNetwork(payload.at("network"));
+    Overlay ov = payload.contains("overlay") ? parseOverlay(payload.at("overlay")) : Overlay{};
+    auto built = Graph::build(net, ov);
+    if (!built.second.empty())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", built.second.front().message).dump();
+    const Graph& g = built.first;
+    if (!payload.at("stops").is_array() || payload.at("stops").empty())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "stops must be a non-empty array")
+          .dump();
+    std::vector<int> stops;
+    for (const auto& s : payload.at("stops")) {
+      int vi = g.vertexIndex(s.get<std::string>());
+      if (vi < 0)
+        return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX",
+                      "unknown stop: " + s.get<std::string>())
+            .dump();
+      stops.push_back(vi);
+    }
+    int startPos = 0;
+    int endPos = -1;
+    if (payload.contains("start")) {
+      std::string id = payload.at("start").get<std::string>();
+      startPos = -1;
+      for (std::size_t i = 0; i < stops.size(); ++i) {
+        if (g.vertex(stops[i]).id == id) {
+          startPos = static_cast<int>(i);
+          break;
+        }
+      }
+      if (startPos < 0)
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "start must be one of stops").dump();
+    }
+    if (payload.contains("end")) {
+      std::string id = payload.at("end").get<std::string>();
+      for (std::size_t i = 0; i < stops.size(); ++i) {
+        if (g.vertex(stops[i]).id == id) {
+          endPos = static_cast<int>(i);
+          break;
+        }
+      }
+      if (endPos < 0)
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "end must be one of stops").dump();
+    }
+    int exactUpTo = payload.value("exactUpTo", 10);
+    bool allowHeuristic = payload.value("allowHeuristic", true);
+    MultistopResult mr = multistop(g, stops, startPos, endPos, exactUpTo, allowHeuristic);
+    if (!mr.error.empty()) return errEnv(kApiVersion, rid, mr.error, mr.errorDetail).dump();
+    json legs = json::array();
+    for (const auto& l : mr.legs)
+      legs.push_back({{"from", l.from}, {"to", l.to}, {"route", routeToJson(l.route)}});
+    json result{{"found", mr.ok},
+                {"reason", mr.reason},
+                {"order", mr.order},
+                {"legs", legs},
+                {"totalTimeS", mr.totalTimeS},
+                {"totalDistanceM", mr.totalDistanceM},
+                {"totalTollInr", mr.totalTollInr},
+                {"optimal", mr.optimal},
+                {"method", mr.method}};
+    json stats = {{"elapsedUs", elapsedUs}};
+    return okEnv(kApiVersion, rid, result, stats).dump();
+  }
+
+  if (cmd == "lab.compare") {
+    for (const char* k : {"network", "runs"}) {
+      if (!payload.contains(k))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      std::string("payload.") + k + " is required")
+            .dump();
+    }
+    if (!payload.at("runs").is_array() || payload.at("runs").size() != 2)
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "runs must be an array of 2").dump();
+    Network net = parseNetwork(payload.at("network"));
+    Overlay ov = payload.contains("overlay") ? parseOverlay(payload.at("overlay")) : Overlay{};
+    auto built = Graph::build(net, ov);
+    if (!built.second.empty())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", built.second.front().message).dump();
+    const Graph& g = built.first;
+    auto runSpec = [&](const json& spec) -> LabOutcome {
+      std::string a = spec.at("algorithm").get<std::string>();
+      if (a == "BINSEARCH") {
+        std::vector<std::int64_t> values;
+        for (const auto& v : spec.at("values")) values.push_back(v.get<std::int64_t>());
+        return runBinsearch(values, spec.at("target").get<std::int64_t>(),
+                            spec.value("maxEvents", 20000LL));
+      }
+      LabOutcome bad;
+      if (!spec.contains("source") || !spec.at("source").is_string()) {
+        bad.errorCode = "SCHEMA_VIOLATION";
+        bad.errorDetail = "compare run requires source";
+        return bad;
+      }
+      std::string s = spec.at("source").get<std::string>();
+      int si = g.vertexIndex(s);
+      if (si < 0) {
+        bad.errorCode = "UNKNOWN_VERTEX";
+        bad.errorDetail = "unknown source: " + s;
+        return bad;
+      }
+      int di = -1;
+      if (spec.contains("target")) {
+        di = g.vertexIndex(spec.at("target").get<std::string>());
+        if (di < 0) {
+          bad.errorCode = "UNKNOWN_VERTEX";
+          bad.errorDetail = "unknown target";
+          return bad;
+        }
+      }
+      ResolvedObjective ro;
+      ro.model = CostModel::Fastest;
+      ro.description = "FASTEST";
+      if (spec.contains("objective")) {
+        BalancedParams bp;
+        if (spec.contains("objectiveParams")) {
+          const json& op = spec.at("objectiveParams");
+          bp.wTime = op.value("wTime", 0LL);
+          bp.wDist = op.value("wDist", 0LL);
+          bp.wToll = op.value("wToll", 0LL);
+          bp.avoidSevere = op.value("avoidSevere", false);
+        }
+        ro = resolveObjective(g, spec.at("objective").get<std::string>(), bp);
+      }
+      return runLab(g, a, si, di, ro, spec.value("maxEvents", 20000LL));
+    };
+    json results = json::array();
+    std::vector<std::int64_t> costs;
+    std::vector<bool> hasCost;
+    for (const auto& spec : payload.at("runs")) {
+      LabOutcome lo = runSpec(spec);
+      if (!lo.ok) {
+        std::string code = lo.errorCode.empty() ? "INTERNAL_ERROR" : lo.errorCode;
+        return errEnv(kApiVersion, rid, code, lo.errorDetail).dump();
+      }
+      json entry{{"algorithm", lo.algorithm},
+                 {"traceLength", static_cast<int>(lo.trace.size())},
+                 {"visitedVertices", lo.stats.visitedVertices},
+                 {"expandedVertices", lo.expandedVertices}};
+      bool found = true;
+      std::int64_t cost = 0;
+      bool hc = false;
+      if (lo.hasRoute) {
+        found = lo.route.found;
+        cost = lo.route.objectiveCost;
+        hc = true;
+        entry["routeFound"] = found;
+      } else if (lo.algorithm == "MST_PRIM" || lo.algorithm == "MST_KRUSKAL") {
+        cost = lo.mstWeight;
+        hc = true;
+      } else {
+        entry["routeFound"] = nullptr;
+      }
+      entry["found"] = found;
+      entry["cost"] = hc ? json(cost) : json(nullptr);
+      costs.push_back(cost);
+      hasCost.push_back(hc && found);
+      results.push_back(entry);
+    }
+    json comparison = json::object();
+    if (hasCost[0] && hasCost[1]) comparison["costAgreement"] = (costs[0] == costs[1]);
+    json result{{"results", results}, {"comparison", comparison}};
+    json stats = {{"elapsedUs", elapsedUs}};
+    return okEnv(kApiVersion, rid, result, stats).dump();
+  }
+
   return errEnv(kApiVersion, rid, "INTERNAL_ERROR",
-                "command " + cmd + " not implemented yet (arrives in M5)")
+                "command " + cmd + " not implemented yet (arrives in M6)")
       .dump();
 }
 

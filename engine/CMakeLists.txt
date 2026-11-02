@@ -32,6 +32,9 @@ add_library(pathforge_lib
   src/position.cpp
   src/yen.cpp
   src/diversion.cpp
+  src/prim.cpp
+  src/kruskal.cpp
+  src/multistop.cpp
   src/engine.cpp
   src/bindings/abi.cpp
 )
@@ -66,6 +69,8 @@ if(PF_BUILD_TESTS)
     tests/test_incidents.cpp
     tests/test_dataset.cpp
     tests/test_diversion.cpp
+    tests/test_mst.cpp
+    tests/test_algorithms.cpp
   )
   target_compile_definitions(pf_tests PRIVATE "PF_DATASET_DIR=\"${CMAKE_SOURCE_DIR}/../datasets\"")
   target_link_libraries(pf_tests PRIVATE pathforge_lib GTest::gtest_main)

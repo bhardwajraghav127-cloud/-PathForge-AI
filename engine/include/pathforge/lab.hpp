@@ -16,7 +16,9 @@
 #include <vector>
 
 #include "pathforge/graph.hpp"
+#include "pathforge/kruskal.hpp"
 #include "pathforge/objectives.hpp"
+#include "pathforge/prim.hpp"
 
 namespace pathforge {
 
@@ -25,11 +27,19 @@ struct LabOutcome {
   std::string errorCode;  // set when !ok
   std::string errorDetail;
   std::string algorithm;
-  // BFS/DFS:
+  // BFS/DFS/TOPO_SORT:
   std::vector<std::string> order;
+  bool hasCycle = false;  // TOPO_SORT only
   // DIJKSTRA/A_STAR:
   RouteResult route;
   bool hasRoute = false;
+  // MST_PRIM/MST_KRUSKAL:
+  std::vector<MstEdge> mstEdges;
+  std::int64_t mstWeight = 0;
+  bool mstForest = false;
+  // BINSEARCH:
+  std::int64_t searchIndex = -1;
+  bool searchExact = false;
   std::vector<TraceEvent> trace;
   bool truncated = false;
   bool heuristicZero = false;
@@ -39,5 +49,10 @@ struct LabOutcome {
 
 LabOutcome runLab(const Graph& g, const std::string& algorithm, int srcIdx, int dstIdx,
                   const ResolvedObjective& ro, std::int64_t maxEvents);
+
+// Route-prefix binary search demo: lower bound over sorted prefix times.
+// values must be sorted non-decreasing (else error); trace records (lo,mid,hi).
+LabOutcome runBinsearch(const std::vector<std::int64_t>& values, std::int64_t target,
+                        std::int64_t maxEvents);
 
 }  // namespace pathforge
