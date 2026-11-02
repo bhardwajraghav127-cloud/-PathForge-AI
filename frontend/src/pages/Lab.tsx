@@ -9,6 +9,7 @@ import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { DATASET, type Dataset, formatSeconds } from '../data/dataset';
 import { useTraffic } from '../traffic';
+import { useToasts } from '../components/ui';
 
 const TINY: Dataset = {
   schemaVersion: 1,
@@ -33,6 +34,18 @@ const TINY: Dataset = {
 
 const ALGOS = ['BFS', 'DFS', 'DIJKSTRA', 'A_STAR', 'MST_PRIM', 'MST_KRUSKAL', 'TOPO_SORT', 'BINSEARCH'];
 const NEEDS_TARGET = new Set(['DIJKSTRA', 'A_STAR']);
+
+// Reference material (textbook facts, not engine output).
+const ALGO_INFO: Record<string, { complexity: string; use: string; invariant: string }> = {
+  BFS: { complexity: 'O(V + E) time, O(V) space', use: 'Fewest-hop paths on unweighted graphs; level-order exploration.', invariant: 'The queue always holds one frontier level; first visit is shortest in hops.' },
+  DFS: { complexity: 'O(V + E) time, O(V) space', use: 'Connectivity, cycle detection, topological order building blocks.', invariant: 'The stack is the current root-to-node path; finish times nest.' },
+  DIJKSTRA: { complexity: 'O((V + E) log V) with a binary heap', use: 'Optimal routes on non-negative weights; the engine default.', invariant: 'A settled vertex holds its final shortest distance.' },
+  A_STAR: { complexity: 'O((V + E) log V); expands fewer nodes with a good heuristic', use: 'Goal-directed search; optimal iff the heuristic never overestimates.', invariant: 'f = g + h orders expansion; this engine rejects inadmissible maps.' },
+  MST_PRIM: { complexity: 'O(E log V) lazy heap', use: 'Grow the cheapest connected network from a root (cabling, overlays).', invariant: 'The cut property: the cheapest crossing edge is always safe.' },
+  MST_KRUSKAL: { complexity: 'O(E log E) with union-find', use: 'Same MST via global edge order; natural fit for distributed edges.', invariant: 'Edges join different components only — never a cycle.' },
+  TOPO_SORT: { complexity: 'O(V + E) (Kahn)', use: 'Build/dependency order on DAGs; cycle detection otherwise.', invariant: 'Lexicographically smallest available vertex first (deterministic).' },
+  BINSEARCH: { complexity: 'O(log n) probes', use: 'Exact index (or insertion point) in sorted arrays.', invariant: 'The target, if present, is always inside [lo, hi].' },
+};
 
 const TraceEventSchema = z.object({
   step: z.number().catch(0), type: z.string().catch(''),
@@ -89,7 +102,15 @@ export default function Lab() {
   const [roadTime, setRoadTime] = useState('10');
   const [roadOneWay, setRoadOneWay] = useState(true);
   const [issues, setIssues] = useState<string[]>([]);
+  const [validMsg, setValidMsg] = useState('');
+  const [delV, setDelV] = useState('b');
+  const [delR, setDelR] = useState('ab');
+  const [editR, setEditR] = useState('ab');
+  const [editDist, setEditDist] = useState('10');
+  const [editTime, setEditTime] = useState('10');
   const [algo, setAlgo] = useState('BFS');
+  const [speed, setSpeed] = useState(1);
+  const pushToast = useToasts((s) => s.push);
   const [source, setSource] = useState('a');
   const [target, setTarget] = useState('c');
   const [objective, setObjective] = useState('FASTEST');
@@ -114,11 +135,16 @@ export default function Lab() {
 
   async function validateCustom() {
     setIssues([]);
+    setValidMsg('');
     try {
       const o = await engineClient.call('network.validate', { network: custom }, { channel: 'lab-validate' });
       if (o.stale) return;
       const r = o.result as { valid?: boolean; issues?: { code?: string; message?: string }[] };
-      setIssues((r.issues ?? []).map((i) => `${i.code ?? '?'}: ${i.message ?? ''}`));
+      const list = (r.issues ?? []).map((i) => `${i.code ?? '?'}: ${i.message ?? ''}`);
+      setIssues(list);
+      if (r.valid === true && list.length === 0) {
+        setValidMsg(`Valid: ${custom.vertices.length} vertices, ${custom.roads.length} roads. Algorithms may run.`);
+      }
     } catch (e) {
       setIssues([`ERROR: ${e instanceof EngineError ? e.message : String(e)}`]);
     }
@@ -130,30 +156,30 @@ export default function Lab() {
       setPlaying(false);
       return;
     }
-    const t = setTimeout(() => setStep((s) => s + 1), 400);
+    const t = setTimeout(() => setStep((s) => s + 1), Math.round(400 / speed));
     return () => clearTimeout(t);
-  }, [playing, step, result]);
+  }, [playing, step, result, speed]);
 
-  async function run() {
+  async function runAlgorithm(which: string) {
     setError('');
     setResult(null);
     setStep(0);
     setPlaying(false);
     try {
       const payload: Record<string, unknown> = {
-        network: net, overlay: overlayOf(), algorithm: algo, source,
+        network: net, overlay: overlayOf(), algorithm: which, source,
         objective, maxEvents: 20000,
       };
-      if (algo === 'BINSEARCH') {
+      if (which === 'BINSEARCH') {
         payload['values'] = values.split(',').map((x) => Number(x.trim()));
         payload['target'] = Number(binTarget);
         delete payload['source'];
-      } else if (NEEDS_TARGET.has(algo)) {
+      } else if (NEEDS_TARGET.has(which)) {
         payload['target'] = target;
       }
       const o = await engineClient.call('lab.run', payload, { channel: 'lab' });
       if (o.stale) return;
-      if (algo === 'BINSEARCH') {
+      if (which === 'BINSEARCH') {
         const r = o.result as { index?: number; exact?: boolean };
         setBinOut(`index=${r.index} exact=${r.exact}`);
         return;
@@ -161,9 +187,14 @@ export default function Lab() {
       const r = LabResultSchema.parse(o.result);
       setResult(r);
       setStep(r.trace.length);
+      if (which !== algo) setAlgo(which);
     } catch (e) {
       setError(e instanceof EngineError ? `${e.code}: ${e.message}` : String(e));
     }
+  }
+
+  function run() {
+    void runAlgorithm(algo);
   }
 
   async function compare() {
@@ -185,17 +216,40 @@ export default function Lab() {
   }
 
   const shown: TraceEvent[] = result?.trace.slice(0, step) ?? [];
-  const visited = useMemo(() => [...new Set(shown.map((e) => e.vertex).filter(Boolean))], [shown]);
+  const visited = useMemo(
+    () => [...new Set(shown.filter((e) => e.type === 'visit' || e.type === 'select').map((e) => e.vertex).filter(Boolean))],
+    [shown],
+  );
+  const frontier = useMemo(() => {
+    const seen = new Set(visited);
+    const out: string[] = [];
+    for (const e of shown) {
+      if ((e.type === 'discover' || e.type === 'relax') && e.vertex && !seen.has(e.vertex)) {
+        seen.add(e.vertex);
+        out.push(e.vertex);
+      }
+    }
+    return out;
+  }, [shown, visited]);
   const tracedArcs = useMemo(() => [...new Set(shown.map((e) => e.arc).filter(Boolean))], [shown]);
   const current = shown.length > 0 ? (shown[shown.length - 1]?.vertex || null) : null;
+  const bestDist = useMemo(() => {
+    for (let i = shown.length - 1; i >= 0; i--) {
+      const d = shown[i]?.dist;
+      if (d !== undefined && d >= 0) return d;
+    }
+    return null;
+  }, [shown]);
   const routeArcs = result?.route?.arcs.map((a) => a.arcId) ?? [];
+  const mstSum = result?.mst ? result.mst.edges.map((e) => e.weightM).join(' + ') : '';
+  const info = ALGO_INFO[algo];
 
   return (
     <div>
       <div className="pf-workspace">
         <div className="pf-map-wrap">
           <MapView network={net} routeArcIds={step >= (result?.trace.length ?? 0) ? routeArcs : tracedArcs}
-            visitedIds={visited} currentId={current} />
+            visitedIds={visited} frontierIds={frontier} currentId={current} />
         </div>
         <div className="pf-panel">
           <section className="pf-card" aria-label="Lab controls">
@@ -255,8 +309,15 @@ export default function Lab() {
                 </div>
               </div>
             )}
+            {info && (
+              <div data-testid="lab-algo-info">
+                <p className="pf-meta"><strong>{algo}</strong> · {info.complexity}</p>
+                <p className="pf-meta">{info.use}</p>
+                <p className="pf-meta">Invariant: {info.invariant}</p>
+              </div>
+            )}
             <div className="pf-row">
-              <button className="pf-btn primary" onClick={() => void run()} data-testid="lab-run">Run Algorithm</button>
+              <button className="pf-btn primary" onClick={() => run()} data-testid="lab-run">Run Algorithm</button>
             </div>
             {binOut && <p data-testid="lab-binsearch-out">{binOut}</p>}
             {error && <div className="pf-alert error" role="alert" data-testid="lab-error">{error}</div>}
@@ -272,8 +333,13 @@ export default function Lab() {
                 <p data-testid="lab-mst">
                   MST weight {result.mst.totalWeightM}m · {result.mst.edges.length} edges{result.mst.forest ? ' · FOREST (disconnected)' : ''}
                   : {result.mst.edges.map((e) => `${e.roadId}(${e.weightM}m)`).join(' ')}
+                  {mstSum && ` = ${mstSum} = ${result.mst.totalWeightM}m`}
                 </p>
               )}
+              <p className="pf-meta" data-testid="lab-live-stats">
+                Visited {visited.length} · frontier {frontier.length}
+                {bestDist !== null && ` · current best ${bestDist}`}
+              </p>
               <div className="pf-field">
                 <label htmlFor="lab-step">Trace step {step}/{result.trace.length}</label>
                 <input id="lab-step" type="range" min={0} max={result.trace.length} value={step}
@@ -281,7 +347,18 @@ export default function Lab() {
               </div>
               <div className="pf-row">
                 <button className="pf-btn" onClick={() => setPlaying((p) => !p)} data-testid="lab-play">{playing ? 'Pause' : 'Play'}</button>
+                <button className="pf-btn" onClick={() => { setPlaying(false); setStep((s) => Math.max(0, s - 1)); }} data-testid="lab-prev" aria-label="Previous step">‹ Prev</button>
+                <button className="pf-btn" onClick={() => { setPlaying(false); setStep((s) => Math.min(result.trace.length, s + 1)); }} data-testid="lab-next" aria-label="Next step">Next ›</button>
                 <button className="pf-btn" onClick={() => { setPlaying(false); setStep(0); }} data-testid="lab-reset">Reset</button>
+                <div className="pf-field">
+                  <label htmlFor="lab-speed">Speed</label>
+                  <select id="lab-speed" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} data-testid="lab-speed">
+                    <option value={0.5}>0.5×</option>
+                    <option value={1}>1×</option>
+                    <option value={2}>2×</option>
+                    <option value={4}>4×</option>
+                  </select>
+                </div>
               </div>
               <ol data-testid="trace-events">
                 {shown.map((e) => (
@@ -359,9 +436,133 @@ export default function Lab() {
                 }} data-testid="lab-remove-road">Remove last road</button>
                 <button className="pf-btn" onClick={() => void validateCustom()} data-testid="lab-validate">Validate</button>
               </div>
+              <h3>Examples</h3>
+              <div className="pf-row">
+                <button className="pf-btn small" data-testid="lab-example-line"
+                  onClick={() => {
+                    setCustom({
+                      schemaVersion: 1,
+                      vertices: [
+                        { id: 'a', name: 'A', lat: 28.0, lon: 77.0 },
+                        { id: 'b', name: 'B', lat: 28.0, lon: 77.0001 },
+                        { id: 'c', name: 'C', lat: 28.0, lon: 77.0002 },
+                      ],
+                      roads: [
+                        { id: 'ab', from: 'a', to: 'b', oneWay: false, distanceM: 10, baselineTimeS: 10, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'ab', available: true },
+                        { id: 'bc', from: 'b', to: 'c', oneWay: false, distanceM: 10, baselineTimeS: 10, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'bc', available: true },
+                      ],
+                    });
+                    pushToast('Loaded line example');
+                  }}>
+                  Line
+                </button>
+                <button className="pf-btn small" data-testid="lab-example-disconnected"
+                  onClick={() => {
+                    setCustom({
+                      schemaVersion: 1,
+                      vertices: [
+                        { id: 'a', name: 'A', lat: 28.0, lon: 77.0 },
+                        { id: 'b', name: 'B', lat: 28.0, lon: 77.0001 },
+                        { id: 'c', name: 'C', lat: 28.0, lon: 77.0002 },
+                      ],
+                      roads: [
+                        { id: 'ab', from: 'a', to: 'b', oneWay: false, distanceM: 10, baselineTimeS: 10, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'ab', available: true },
+                      ],
+                    });
+                    pushToast('Loaded disconnected example (MST shows FOREST)');
+                  }}>
+                  Disconnected
+                </button>
+                <button className="pf-btn small" data-testid="lab-example-dense"
+                  onClick={() => {
+                    setCustom({
+                      schemaVersion: 1,
+                      vertices: [
+                        { id: 'a', name: 'A', lat: 28.0, lon: 77.0 },
+                        { id: 'b', name: 'B', lat: 28.0, lon: 77.0001 },
+                        { id: 'c', name: 'C', lat: 28.0001, lon: 77.0001 },
+                      ],
+                      roads: [
+                        { id: 'ab', from: 'a', to: 'b', oneWay: false, distanceM: 10, baselineTimeS: 10, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'ab', available: true },
+                        { id: 'bc', from: 'b', to: 'c', oneWay: false, distanceM: 15, baselineTimeS: 15, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'bc', available: true },
+                        { id: 'ac', from: 'a', to: 'c', oneWay: true, distanceM: 30, baselineTimeS: 30, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'ac', available: true },
+                      ],
+                    });
+                    pushToast('Loaded dense example');
+                  }}>
+                  Dense
+                </button>
+              </div>
+              <h3>Delete</h3>
+              <div className="pf-row">
+                <div className="pf-field">
+                  <label htmlFor="lab-del-v-sel">Vertex</label>
+                  <select id="lab-del-v-sel" value={delV} onChange={(e) => setDelV(e.target.value)} data-testid="lab-del-v-sel">
+                    {custom.vertices.map((v) => <option key={v.id} value={v.id}>{v.id}</option>)}
+                  </select>
+                </div>
+                <button className="pf-btn small danger" data-testid="lab-del-v"
+                  onClick={() => {
+                    if (custom.roads.some((r) => r.from === delV || r.to === delV)) {
+                      pushToast(`Cannot delete ${delV}: roads still reference it`, 'error');
+                      return;
+                    }
+                    setCustom((c) => ({ ...c, vertices: c.vertices.filter((v) => v.id !== delV) }));
+                    pushToast(`Deleted vertex ${delV}`);
+                  }}>
+                  Delete vertex
+                </button>
+                <div className="pf-field">
+                  <label htmlFor="lab-del-road-sel">Road</label>
+                  <select id="lab-del-road-sel" value={delR} onChange={(e) => setDelR(e.target.value)} data-testid="lab-del-road-sel">
+                    {custom.roads.map((r) => <option key={r.id} value={r.id}>{r.id}</option>)}
+                  </select>
+                </div>
+                <button className="pf-btn small danger" data-testid="lab-del-road"
+                  onClick={() => {
+                    setCustom((c) => ({ ...c, roads: c.roads.filter((r) => r.id !== delR) }));
+                    pushToast(`Deleted road ${delR}`);
+                  }}>
+                  Delete road
+                </button>
+              </div>
+              <h3>Edit weights</h3>
+              <div className="pf-row">
+                <div className="pf-field">
+                  <label htmlFor="lab-edit-road-sel">Road</label>
+                  <select id="lab-edit-road-sel" value={editR} onChange={(e) => setEditR(e.target.value)} data-testid="lab-edit-road-sel">
+                    {custom.roads.map((r) => <option key={r.id} value={r.id}>{r.id}</option>)}
+                  </select>
+                </div>
+                <div className="pf-field">
+                  <label htmlFor="lab-edit-dist">Distance (m)</label>
+                  <input id="lab-edit-dist" value={editDist} onChange={(e) => setEditDist(e.target.value)} data-testid="lab-edit-dist" />
+                </div>
+                <div className="pf-field">
+                  <label htmlFor="lab-edit-time">Time (s)</label>
+                  <input id="lab-edit-time" value={editTime} onChange={(e) => setEditTime(e.target.value)} data-testid="lab-edit-time" />
+                </div>
+                <button className="pf-btn small" data-testid="lab-edit-road-apply"
+                  onClick={() => {
+                    const d = Number(editDist);
+                    const t = Number(editTime);
+                    if (!Number.isFinite(d) || !Number.isFinite(t) || d <= 0 || t <= 0) {
+                      pushToast('Distance and time must be positive numbers', 'error');
+                      return;
+                    }
+                    setCustom((c) => ({
+                      ...c,
+                      roads: c.roads.map((r) => (r.id === editR ? { ...r, distanceM: d, baselineTimeS: t } : r)),
+                    }));
+                    pushToast(`Updated ${editR}: ${d}m / ${t}s`);
+                  }}>
+                  Apply
+                </button>
+              </div>
               <p className="pf-meta" data-testid="lab-custom-counts">
                 {custom.vertices.length} vertices · {custom.roads.length} roads
               </p>
+              {validMsg && <p data-testid="lab-valid-ok">{validMsg}</p>}
               <ul data-testid="lab-issues">
                 {issues.map((i, k) => <li key={k}>{i}</li>)}
               </ul>
@@ -384,19 +585,46 @@ export default function Lab() {
                 </select>
               </div>
             </div>
-            <button className="pf-btn" onClick={() => void compare()} data-testid="lab-compare">Run Comparison</button>
+            <div className="pf-row">
+              <button className="pf-btn" onClick={() => void compare()} data-testid="lab-compare">Run Comparison</button>
+              <button className="pf-btn small" data-testid="lab-cmp-swap"
+                onClick={() => { const a = cmpA; setCmpA(cmpB); setCmpB(a); }}>
+                Swap A/B
+              </button>
+            </div>
             {cmp && (
-              <ul data-testid="lab-compare-out">
-                {cmp.results.map((r) => (
-                  <li key={r.algorithm} data-testid={`lab-compare-${r.algorithm}`}>
-                    {r.algorithm}: visited {r.visitedVertices}, expanded {r.expandedVertices},
-                    cost {r.cost === null ? 'n/a' : r.cost}, found {String(r.found)}
-                  </li>
-                ))}
-                <li data-testid="lab-cost-agreement">
+              <div>
+                <table data-testid="lab-compare-out">
+                  <caption>Run metrics (engine facts)</caption>
+                  <thead>
+                    <tr><th scope="col">Run</th><th scope="col">Visited</th><th scope="col">Expanded</th><th scope="col">Trace</th><th scope="col">Cost</th><th scope="col">Load</th></tr>
+                  </thead>
+                  <tbody>
+                    {cmp.results.map((r) => (
+                      <tr key={r.algorithm} data-testid={`lab-compare-${r.algorithm}`}>
+                        <th scope="row">{r.algorithm}</th>
+                        <td>{r.visitedVertices}</td>
+                        <td>{r.expandedVertices}</td>
+                        <td>{r.traceLength}</td>
+                        <td>{r.cost === null ? 'n/a' : r.cost}</td>
+                        <td>
+                          <button className="pf-btn small" data-testid={`lab-load-${r.algorithm}`}
+                            onClick={() => void runAlgorithm(r.algorithm)}>
+                            Into player
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p data-testid="lab-cost-agreement">
                   cost agreement: {String(cmp.comparison.costAgreement ?? 'n/a')}
-                </li>
-              </ul>
+                  {cmp.results.length === 2
+                    && cmp.results[0]?.cost !== null && cmp.results[0]?.cost !== undefined
+                    && cmp.results[1]?.cost !== null && cmp.results[1]?.cost !== undefined
+                    && ` (Δ ${Math.abs((cmp.results[0]?.cost ?? 0) - (cmp.results[1]?.cost ?? 0))})`}
+                </p>
+              </div>
             )}
           </section>
 

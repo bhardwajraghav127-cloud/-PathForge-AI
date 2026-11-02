@@ -22,6 +22,7 @@ export interface MapViewProps {
   routeArcIds: string[];
   altArcIds?: string[];
   visitedIds?: string[];
+  frontierIds?: string[];
   currentId?: string | null;
   originId?: string | null;
   destId?: string | null;
@@ -40,7 +41,7 @@ function roadEnds(net: Dataset, vertexId: string) {
 
 export default function MapView(props: MapViewProps) {
   const {
-    routeArcIds, altArcIds, visitedIds, currentId, originId, destId, stopIds, stopOrder,
+    routeArcIds, altArcIds, visitedIds, frontierIds, currentId, originId, destId, stopIds, stopOrder,
     cyOut, network, onSetOrigin, onSetDestination, statsExtra,
   } = props;
   const ref = useRef<HTMLDivElement>(null);
@@ -67,14 +68,15 @@ export default function MapView(props: MapViewProps) {
       cy.edges().removeClass('route alt closed congested search-hit');
       for (const id of routeArcIds) cy.getElementById(id).addClass('route');
       for (const id of altArcIds ?? []) cy.getElementById(id).addClass('alt');
-      cy.nodes().removeClass('visited current origin dest stop');
+      cy.nodes().removeClass('visited frontier current origin dest stop');
       for (const id of visitedIds ?? []) cy.getElementById(id).addClass('visited');
+      for (const id of frontierIds ?? []) cy.getElementById(id).addClass('frontier');
       if (currentId) cy.getElementById(currentId).addClass('current');
       if (originId) cy.getElementById(originId).addClass('origin');
       if (destId) cy.getElementById(destId).addClass('dest');
       for (const id of stopIds ?? []) cy.getElementById(id).addClass('stop');
     });
-  }, [routeArcIds, altArcIds, visitedIds, currentId, originId, destId, stopIds]);
+  }, [routeArcIds, altArcIds, visitedIds, frontierIds, currentId, originId, destId, stopIds]);
 
   const applyTraffic = useCallback(() => {
     const cy = cyRef.current;
@@ -205,6 +207,10 @@ export default function MapView(props: MapViewProps) {
           style: { 'line-color': jamCol, 'target-arrow-color': jamCol, width: 5, 'line-style': 'dotted' },
         },
         { selector: 'node.visited', style: { 'background-color': accentCol } },
+        {
+          selector: 'node.frontier',
+          style: { 'border-width': 4, 'border-color': altCol, width: 24, height: 24 },
+        },
         { selector: 'node.current', style: { 'background-color': routeCol, width: 28, height: 28 } },
         { selector: 'node.origin', style: { 'border-width': 5, 'border-color': accentCol, width: 26, height: 26 } },
         { selector: 'node.dest', style: { 'border-width': 5, 'border-color': routeCol, width: 26, height: 26 } },
