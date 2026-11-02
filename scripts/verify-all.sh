@@ -26,5 +26,5 @@ run "antifake" antifake.sh
 echo; echo "########## SUMMARY ##########"
 echo "PASS: ${pass[*]:-none}"
 echo "FAIL: ${fail[*]:-none}"
-echo "NOT_APPLICABLE: ${na[*]}"
+echo "NOT_APPLICABLE: ${na[*]:-none}"
 [ "${#fail[@]}" -eq 0 ]
