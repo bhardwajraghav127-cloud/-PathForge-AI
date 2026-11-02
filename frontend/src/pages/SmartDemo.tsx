@@ -11,7 +11,7 @@ import MapView from '../components/MapView';
 import { Confirm, useToasts } from '../components/ui';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
-import { formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
+import { formatInr, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
 import { useTraffic } from '../traffic';
 import { useSim, type DiversionBanner } from '../simulation';
 import { useDemo, type DecisionReceipt } from '../demo/store';
@@ -33,6 +33,19 @@ const STAGES = ['Prepare', 'Plan', 'Depart', 'Disrupt', 'Analyze', 'Decide', 'Co
 // 3600x (~1 min wall); motion stays continuous (<=60 sim-s per frame, far
 // below the shortest arc duration).
 const DEMO_SPEEDS = [60, 600, 1800, 3600];
+
+// Presenter narration: what to say at each stage. Static script; every
+// number on screen still comes from the engine at run time.
+const NARRATION = [
+  { title: 'Prepare', say: 'One click resets the demo and asks the C++ engine for the fastest Chandigarh to Delhi route.' },
+  { title: 'Plan', say: 'The engine returns the best route plus genuine Yen alternatives with honest time and toll deltas.' },
+  { title: 'Depart', say: 'The vehicle drives the directed plan. Durations come from per-arc engine evaluations.' },
+  { title: 'Disrupt', say: 'A SIMULATED closure hits a road ahead on our own future route — never an unrelated road.' },
+  { title: 'Analyze', say: 'The diversion policy recomputes remaining costs from our exact position. Watch the policy reason.' },
+  { title: 'Decide', say: 'The simulation pauses. Accept or stay — both are real, and staying a blocked route is allowed.' },
+  { title: 'Continue', say: 'No teleporting: the vehicle resumes mid-arc on the engine-returned plan.' },
+  { title: 'Finish', say: 'The receipt shows overlay version, policy reason, estimate, and your action. Replay any time.' },
+];
 
 function stageOf(status: string): number {
   switch (status) {
@@ -68,11 +81,28 @@ export default function SmartDemo() {
   const pushToast = useToasts((s) => s.push);
   const cyOut = useRef<Core | null>(null);
   const vehicleRef = useRef<HTMLDivElement>(null);
+  const arrowRef = useRef<HTMLDivElement>(null);
+  const trailRef = useRef<HTMLDivElement>(null);
+  const flagSRef = useRef<HTMLDivElement>(null);
+  const flagFRef = useRef<HTMLDivElement>(null);
+  const reducedMotionRef = useRef(false);
+  useEffect(() => {
+    if (window.matchMedia) {
+      reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+  }, []);
   const m = useRef<Mutable>(freshMutable());
   const [paused, setPaused] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const [guided, setGuided] = useState(true);
+  const [presenter, setPresenter] = useState(false);
+  const [autoChoice, setAutoChoice] = useState(false);
+  const [autoIn, setAutoIn] = useState(0);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const guidedRef = useRef(guided);
+  guidedRef.current = guided;
+  const trail = useRef<{ x: number; y: number }[]>([]);
 
   async function evalArc(arcId: string, from: string): Promise<{ timeS: number; distanceM: number }> {
     const t = m.current.durCache.get(arcId);
@@ -146,7 +176,8 @@ export default function SmartDemo() {
         ? `Demo ready: ${scenario.route.arcs.length} segments, incident planned on ${scenario.candidate.targetRoad}`
         : 'Demo ready: no beneficial diversion found, drive-through mode');
       // One click starts the drive; Plan stage stays visible in the timeline.
-      useDemo.getState().set({ status: 'running' });
+      // Guided mode curates a watchable pace; manual keeps the user's speed.
+      useDemo.getState().set({ status: 'running', ...(guidedRef.current ? { speed: 600 } : {}) });
       m.current.lastWall = performance.now();
     } catch (e) {
       useDemo.getState().set({
@@ -268,6 +299,24 @@ export default function SmartDemo() {
           if (vehicleRef.current) {
             vehicleRef.current.style.transform = `translate(${x}px, ${y}px) translate(-50%,-50%)`;
           }
+          if (arrowRef.current) {
+            const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
+            arrowRef.current.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`;
+          }
+          if (!reducedMotionRef.current) {
+            trail.current.push({ x, y });
+            if (trail.current.length > 6) trail.current.shift();
+            const dots = trailRef.current?.children;
+            if (dots) {
+              for (let i = 0; i < dots.length; i++) {
+                const dot = dots[i] as HTMLElement;
+                const tp = trail.current[trail.current.length - 1 - i];
+                dot.style.transform = tp
+                  ? `translate(${tp.x}px, ${tp.y}px) translate(-50%,-50%)`
+                  : 'translate(-100px,-100px)';
+              }
+            }
+          }
         }
       }
       if (now - mu.lastMirror >= 100) {
@@ -275,6 +324,18 @@ export default function SmartDemo() {
         useDemo.getState().set({
           pos: { arcIdx: mu.arcIdx, arcId: arcId ?? '', fracPermille: Math.floor(mu.frac), simTimeS: Math.floor(mu.simTimeS) },
         });
+        if (cy && s.planVertices.length > 0) {
+          const first = cy.getElementById(s.planVertices[0] ?? '');
+          const last = cy.getElementById(s.planVertices[s.planVertices.length - 1] ?? '');
+          if (first.length > 0 && flagSRef.current) {
+            const p = first.renderedPosition();
+            flagSRef.current.style.transform = `translate(${p.x}px, ${p.y - 30}px) translate(-50%,-50%)`;
+          }
+          if (last.length > 0 && flagFRef.current) {
+            const p = last.renderedPosition();
+            flagFRef.current.style.transform = `translate(${p.x}px, ${p.y - 30}px) translate(-50%,-50%)`;
+          }
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -284,9 +345,34 @@ export default function SmartDemo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo.status, demo.speed]);
 
+  const acceptRef = useRef<() => void>(() => {});
+  // Explicit auto-demo choice: counts down, then accepts a recommended
+  // diversion. Always labeled AUTO-DEMO; any manual click wins the race.
+  useEffect(() => {
+    if (demo.status !== 'awaiting_decision' || !autoChoice || !demo.banner) {
+      setAutoIn(0);
+      return;
+    }
+    if (demo.banner.decision.startsWith('STAY')) return;
+    setAutoIn(5);
+    const t = window.setInterval(() => {
+      setAutoIn((n) => {
+        if (n <= 1) {
+          window.clearInterval(t);
+          acceptRef.current();
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo.status, autoChoice]);
+
   async function accept() {
     const s = useDemo.getState();
     if (!s.banner) return;
+    setAutoIn(0);
     const b = s.banner;
     try {
       const o = await engineClient.call('diversion.evaluate', {
@@ -344,9 +430,12 @@ export default function SmartDemo() {
     }
   }
 
+  acceptRef.current = () => void accept();
+
   async function stay() {
     const s = useDemo.getState();
     if (!s.banner) return;
+    setAutoIn(0);
     const b = s.banner;
     try {
       const o = await engineClient.call('diversion.evaluate', {
@@ -382,7 +471,9 @@ export default function SmartDemo() {
     cleanupInjection();
     useDemo.getState().reset();
     m.current = freshMutable();
+    trail.current = [];
     setPaused(false);
+    setAutoIn(0);
   }
 
   const progress = demo.planArcs.length === 0 ? 0
@@ -394,8 +485,10 @@ export default function SmartDemo() {
     || demo.status === 'evaluating' || demo.status === 'awaiting_decision';
   const [panelHidden, setPanelHidden] = useState(false);
 
+  const narration = NARRATION[stage] ?? NARRATION[0]!;
+
   return (
-    <div>
+    <div className={presenter ? 'pf-present' : undefined}>
       <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
         aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
         {panelHidden ? 'Show panel' : 'Hide panel'}
@@ -413,6 +506,30 @@ export default function SmartDemo() {
         <div className="pf-map-wrap" style={{ position: 'relative' }}>
           <MapView routeArcIds={demo.planArcs} cyOut={cyOut}
             statsExtra={demo.planArcs.length > 0 ? `${demo.planArcs.length} segments` : undefined} />
+          {(running || showVehicle) && (
+            <div ref={trailRef} data-testid="demo-trail" aria-hidden="true"
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              {[0.5, 0.42, 0.34, 0.26, 0.18, 0.1].map((op, i) => (
+                <div key={i} style={{
+                  position: 'absolute', top: 0, left: 0, width: 10, height: 10,
+                  borderRadius: '50%', background: 'var(--pf-accent)', opacity: op,
+                  transform: 'translate(-100px,-100px)',
+                }} />
+              ))}
+            </div>
+          )}
+          {(running || showVehicle) && (
+            <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              <div ref={flagSRef} data-testid="demo-flag-start"
+                style={{ position: 'absolute', top: 0, left: 0 }}>
+                <span className="pf-chip ok">S</span>
+              </div>
+              <div ref={flagFRef} data-testid="demo-flag-finish"
+                style={{ position: 'absolute', top: 0, left: 0 }}>
+                <span className="pf-chip info">F</span>
+              </div>
+            </div>
+          )}
           {showVehicle && (
             <div ref={vehicleRef} data-testid="demo-vehicle" data-arc={demo.pos.arcId}
               data-frac={demo.pos.fracPermille} aria-hidden="true"
@@ -421,14 +538,37 @@ export default function SmartDemo() {
                 borderRadius: '50%', background: 'var(--pf-accent)',
                 border: '3px solid var(--pf-paper)', pointerEvents: 'none',
                 boxShadow: 'var(--pf-shadow)',
+              }}>
+              <div ref={arrowRef} style={{
+                position: 'absolute', top: '50%', left: '50%', width: 0, height: 0,
+                borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+                borderBottom: '10px solid var(--pf-paper)',
               }} />
+            </div>
           )}
         </div>
         <div className="pf-panel">
           <section className="pf-card" aria-label="Smart demo controls">
             <h2>Smart Journey Demo</h2>
             <p className="pf-meta" data-testid="engine-status">Engine: {engineStatus}</p>
-            <p className="pf-meta" data-testid="demo-status">Status: {demo.status}</p>
+            <p className="pf-meta" role="status" data-testid="demo-status">Status: {demo.status}</p>
+            <div className="pf-row">
+              <label className="pf-check">
+                <input type="checkbox" checked={guided} onChange={(e) => setGuided(e.target.checked)}
+                  data-testid="demo-guided" /> Guided mode
+              </label>
+              <label className="pf-check">
+                <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)}
+                  data-testid="demo-presenter" /> Presenter mode
+              </label>
+            </div>
+            <label className="pf-check">
+              <input type="checkbox" checked={autoChoice} onChange={(e) => setAutoChoice(e.target.checked)}
+                data-testid="demo-autochoice" /> AUTO-DEMO choice: accept recommended diversions after 5 s
+            </label>
+            <blockquote className="pf-narrate" data-testid="demo-narrator">
+              <strong>{narration.title}.</strong> {narration.say}
+            </blockquote>
             <div data-testid="demo-progress" role="progressbar"
               aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}
               aria-label="Demo progress"
@@ -439,7 +579,26 @@ export default function SmartDemo() {
               <p data-testid="demo-plan">
                 {vertexName(demo.scenario.source)} → {vertexName(demo.scenario.target)} ·{' '}
                 {formatSeconds(demo.scenario.route.timeS)} · {formatMetres(demo.scenario.route.distanceM)} ·{' '}
-                {demo.scenario.algorithm}
+                {formatInr(demo.scenario.route.tollInr)} toll · {demo.scenario.algorithm}
+              </p>
+            )}
+            {demo.scenario && demo.scenario.alternatives.length > 0 && (
+              <ul data-testid="demo-alts">
+                {demo.scenario.alternatives.map((a, i) => (
+                  <li key={i} data-testid={`demo-alt-${i}`}>
+                    Alt {i + 1}: {formatSeconds(a.timeS)} ({a.timeS >= demo.scenario!.route.timeS ? '+' : ''}
+                    {formatSeconds(a.timeS - demo.scenario!.route.timeS)}) · {formatMetres(a.distanceM)} ·{' '}
+                    {formatInr(a.tollInr)} toll
+                  </li>
+                ))}
+              </ul>
+            )}
+            {demo.injected && (
+              <p className="pf-alert warn" data-testid="demo-incident">
+                SIMULATED incident: {demo.injected.road} closed ahead
+                {demo.scenario?.candidate && (
+                  <> ({vertexName(demo.scenario.candidate.targetFrom)} → {vertexName(demo.scenario.candidate.targetTo)})</>
+                )}
               </p>
             )}
             {demo.scenario && !demo.scenario.candidate && (
@@ -485,6 +644,11 @@ export default function SmartDemo() {
                     {demo.banner.savingS !== null && <> (saves ~{formatSeconds(demo.banner.savingS)})</>}</>
                 )}.
               </p>
+              {autoIn > 0 && (
+                <p className="pf-meta" data-testid="demo-autoin">
+                  AUTO-DEMO choice in {autoIn} s (click either button to decide yourself)
+                </p>
+              )}
               <div className="pf-row">
                 <button className="pf-btn primary" onClick={() => void accept()} data-testid="demo-accept">
                   Accept Diversion

@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function startDemo(page: Page) {
   await page.goto('/#/demo');
   await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await page.getByTestId('demo-guided').uncheck();
   await page.getByTestId('demo-speed').selectOption('3600');
   await page.getByTestId('demo-start').click();
   await expect(page.getByTestId('demo-plan')).toBeVisible({ timeout: 30000 });
@@ -42,4 +43,16 @@ test('smart demo stay path keeps original route when feasible', async ({ page })
   await page.getByTestId('demo-stay').click();
   await expect(page.getByTestId('demo-receipt-action')).toHaveText('stay');
   await expect(page.getByTestId('demo-status')).toContainText('resumed', { timeout: 30000 });
+});
+
+test('guided mode curates pace and narrates stages', async ({ page }) => {
+  await page.goto('/#/demo');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await expect(page.getByTestId('demo-guided')).toBeChecked();
+  await expect(page.getByTestId('demo-narrator')).toContainText('Prepare');
+  await page.getByTestId('demo-start').click();
+  await expect(page.getByTestId('demo-plan')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByTestId('demo-speed')).toHaveValue('600');
+  await expect(page.getByTestId('demo-narrator')).toContainText('Depart');
+  await expect(page.getByTestId('demo-stage-2')).toHaveAttribute('aria-current', 'step');
 });

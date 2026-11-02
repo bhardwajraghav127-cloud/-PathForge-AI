@@ -188,6 +188,17 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .pf-chip.warn { background: var(--pf-warn-bg); border-color: var(--pf-line-strong); color: var(--pf-warn-ink); }
 .pf-alert { padding: 10px 12px; border-radius: var(--pf-radius); font-size: var(--pf-body); }
 .pf-alert.error { background: var(--pf-bad-soft); color: var(--pf-ink); border: 1px solid var(--pf-bad); }
+.pf-alert.warn { background: var(--pf-warn-bg); color: var(--pf-warn-ink); border: 1px solid var(--pf-warn-ink); }
+.pf-check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--pf-body);
+  min-height: 44px; cursor: pointer; }
+.pf-check input { width: 20px; height: 20px; accent-color: var(--pf-accent); }
+.pf-narrate { margin: 10px 0; padding: 10px 12px; border-radius: var(--pf-radius);
+  background: var(--pf-paper-sink); font-size: var(--pf-body); }
+.pf-present .pf-card { font-size: 1.2rem; }
+.pf-present .pf-card h2 { font-size: 1.6rem; }
+.pf-present .pf-narrate { font-size: 1.35rem; }
+.pf-present .pf-stages li { font-size: 1rem; padding: 8px 14px; }
+.pf-present .pf-btn { font-size: 1.15rem; min-height: 52px; }
 .pf-meta { font-size: var(--pf-meta); color: var(--pf-ink-soft); }
 .pf-empty { padding: 18px 12px; text-align: center; color: var(--pf-ink-soft); font-size: var(--pf-body); }
 

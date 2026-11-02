@@ -30,6 +30,11 @@ export function Dashboard() {
         Network: {vertexCount} vertices · {roadCount} roads (north-india-sim-v1)
       </p>
 
+      <div className="pf-row" data-testid="dash-ctas" style={{ marginBottom: 12 }}>
+        <Link className="pf-btn primary" to="/demo" data-testid="dash-cta-demo">Start Smart Demo</Link>
+        <Link className="pf-btn" to="/lab" data-testid="dash-cta-algo">Explore Algorithms</Link>
+      </div>
+
       <div className="pf-metrics" data-testid="dash-metrics">
         <Metric value={String(vertexCount)} label="Cities" testid="dash-metric-cities" />
         <Metric value={String(roadCount)} label="Roads" testid="dash-metric-roads" />
