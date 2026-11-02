@@ -1,6 +1,6 @@
 # C++ line coverage (M11, measured)
 
-- build: Debug + --coverage, Apple clang 21, 47bd961
+- build: Debug + --coverage, Apple clang 21, 56c5616
 - scope: engine/src (*.cpp); executions: full pf_tests suite + all contract
   fixtures via pf_contract_runner + pf_bench (seed 42)
 

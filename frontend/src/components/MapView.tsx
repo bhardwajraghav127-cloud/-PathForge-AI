@@ -33,6 +33,7 @@ export interface MapViewProps {
   onSetOrigin?: (id: string) => void;
   onSetDestination?: (id: string) => void;
   statsExtra?: string;
+  defaultView?: MapViewMode;
 }
 
 function roadEnds(net: Dataset, vertexId: string) {
@@ -42,7 +43,7 @@ function roadEnds(net: Dataset, vertexId: string) {
 export default function MapView(props: MapViewProps) {
   const {
     routeArcIds, altArcIds, visitedIds, frontierIds, currentId, originId, destId, stopIds, stopOrder,
-    cyOut, network, onSetOrigin, onSetDestination, statsExtra,
+    cyOut, network, onSetOrigin, onSetDestination, statsExtra, defaultView,
   } = props;
   const ref = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -52,7 +53,7 @@ export default function MapView(props: MapViewProps) {
   const closures = useTraffic((s) => s.closures);
   const incidents = useTraffic((s) => s.incidents);
   const factors = useTraffic((s) => s.factors);
-  const [view, setView] = useState<MapViewMode>('geo');
+  const [view, setView] = useState<MapViewMode>(defaultView ?? 'geo');
   const [rotation, setRotation] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [inspectNode, setInspectNode] = useState<string | null>(null);
@@ -67,7 +68,10 @@ export default function MapView(props: MapViewProps) {
     cy.batch(() => {
       cy.edges().removeClass('route alt closed congested search-hit');
       for (const id of routeArcIds) cy.getElementById(id).addClass('route');
-      for (const id of altArcIds ?? []) cy.getElementById(id).addClass('alt');
+      const routeSet = new Set(routeArcIds);
+      for (const id of altArcIds ?? []) {
+        if (!routeSet.has(id)) cy.getElementById(id).addClass('alt');
+      }
       cy.nodes().removeClass('visited frontier current origin dest stop');
       for (const id of visitedIds ?? []) cy.getElementById(id).addClass('visited');
       for (const id of frontierIds ?? []) cy.getElementById(id).addClass('frontier');
@@ -193,11 +197,11 @@ export default function MapView(props: MapViewProps) {
             'control-point-step-size': 28,
           },
         },
-        { selector: 'edge.route', style: { 'line-color': routeCol, 'target-arrow-color': routeCol, width: 7 } },
         {
           selector: 'edge.alt',
           style: { 'line-color': altCol, 'target-arrow-color': altCol, width: 5, 'line-style': 'dashed' },
         },
+        { selector: 'edge.route', style: { 'line-color': routeCol, 'target-arrow-color': routeCol, width: 7 } },
         {
           selector: 'edge.closed',
           style: { 'line-color': closedCol, 'target-arrow-color': closedCol, width: 7, 'line-style': 'dashed' },
@@ -222,7 +226,7 @@ export default function MapView(props: MapViewProps) {
     cyRef.current = cy;
     if (cyOut) cyOut.current = cy;
     window.__PF_DEBUG__ = { cy };
-    cy.fit(undefined, 30);
+    cy.fit(undefined, 60);
     let timer = 0;
     const schedule = () => {
       window.clearTimeout(timer);
@@ -308,7 +312,7 @@ export default function MapView(props: MapViewProps) {
     const h = (el?.clientHeight ?? 600) / 2;
     cy.zoom({ level: cy.zoom() * factor, renderedPosition: { x: cx, y: h } });
   };
-  const fitAll = () => cyRef.current?.fit(undefined, 30);
+  const fitAll = () => cyRef.current?.fit(undefined, 60);
   const centerRoute = () => {
     const cy = cyRef.current;
     if (!cy) return;

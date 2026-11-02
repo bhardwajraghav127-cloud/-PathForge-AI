@@ -254,7 +254,7 @@ export default function Lab() {
       <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap">
           <MapView network={net} routeArcIds={step >= (result?.trace.length ?? 0) ? routeArcs : tracedArcs}
-            visitedIds={visited} frontierIds={frontier} currentId={current} />
+            visitedIds={visited} frontierIds={frontier} currentId={current} defaultView="explore" />
         </div>
         <div className="pf-panel">
           <section className="pf-card" aria-label="Lab controls">

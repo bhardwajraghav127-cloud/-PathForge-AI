@@ -197,6 +197,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   font: inherit; font-size: var(--pf-body); font-weight: 600; color: var(--pf-ink-soft);
   background: none; border: 0; border-bottom: 3px solid transparent;
   padding: 10px 14px; margin-bottom: -2px; cursor: pointer; min-height: 44px;
+  white-space: nowrap;
 }
 .pf-tab[aria-selected="true"] { color: var(--pf-ink); border-bottom-color: var(--pf-accent); }
 
