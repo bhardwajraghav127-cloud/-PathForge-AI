@@ -5,6 +5,7 @@ import { useSettings } from './store';
 import { Toaster } from './components/ui';
 import { Dashboard, Placeholder } from './pages/pages';
 import RoutePlanner from './pages/RoutePlanner';
+import SmartDemo from './pages/SmartDemo';
 import Journey from './pages/Journey';
 import MultiStop from './pages/MultiStop';
 import Scenarios from './pages/Scenarios';
@@ -12,6 +13,7 @@ import Lab from './pages/Lab';
 
 const LINKS = [
   ['/', 'Dashboard'],
+  ['/demo', 'Smart Demo'],
   ['/route', 'Route Planner'],
   ['/journey', 'Journey'],
   ['/multistop', 'Multi-Stop'],
@@ -55,7 +57,7 @@ export default function App() {
           ☰
         </button>
         <h1>PathForge AI</h1>
-        <span className="pf-badge" role="note">SIMULATED DATA — NOT LIVE GPS OR TRAFFIC</span>
+        <span className="pf-badge" role="note">SIMULATION — NOT LIVE GPS, DISPATCH OR TRAFFIC</span>
         <span className="spacer" />
       </header>
       <div className="pf-layout">
@@ -69,6 +71,7 @@ export default function App() {
         <main className="pf-main" id="main">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/demo" element={<SmartDemo />} />
             <Route path="/route" element={<RoutePlanner />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/multistop" element={<MultiStop />} />

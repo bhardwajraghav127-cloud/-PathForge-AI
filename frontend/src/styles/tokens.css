@@ -255,6 +255,16 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   vertical-align: -4px; margin-right: 6px; }
 @keyframes pf-spin { to { transform: rotate(360deg); } }
 
+/* ---------- demo stages ---------- */
+.pf-stages { display: flex; flex-wrap: wrap; gap: 6px; list-style: none;
+  margin: 0 0 var(--pf-s2); padding: 0; }
+.pf-stages li { font-size: var(--pf-meta); color: var(--pf-ink-soft);
+  border: 1px solid var(--pf-line); border-radius: 999px; padding: 4px 10px;
+  background: var(--pf-paper); white-space: nowrap; }
+.pf-stages li.done { color: var(--pf-accent); border-color: var(--pf-accent); }
+.pf-stages li.active { color: #fff; background: var(--pf-accent);
+  border-color: var(--pf-accent); font-weight: 700; }
+
 /* ---------- responsive ---------- */
 .pf-panel-toggle { display: inline-flex; margin-bottom: var(--pf-s2); }
 @media (pointer: coarse) {
