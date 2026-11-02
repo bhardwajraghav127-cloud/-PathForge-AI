@@ -1,0 +1,1 @@
+{"apiVersion":1,"ok":true,"requestId":"info-001","result":{"apiVersion":1,"build":"native","commands":["engine.info","network.validate","route.find"],"engine":"pathforge","version":"0.1.0"},"stats":{"elapsedUs":242}}

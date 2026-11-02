@@ -10,3 +10,11 @@
 
 ## Legend
 - M<n> milestone, C<n> checkpoint; VERIFIED only after commands actually pass
+
+## 2026-11-02 — M1 engine + WASM + shell (DONE, gate green)
+- Built: engine (graph/heap/dijkstra/envelope/ABI/contract-runner), 6 fixtures, 6 scripts, contract doc, Vite/React/TS shell + EngineClient + worker
+- Commands: build-engine-native.sh OK; test-engine.sh 13/13 pass; build-wasm.sh OK (em++ fix for C++ link); test-contract.sh 6/6 parity; build-frontend.sh OK; verify-all.sh all PASS
+- Browser smoke: real-time CDP on headless Chrome → engine.info build:wasm rendered (virtual-time dump-dom stalls workers; documented, not an app bug)
+- Fixes: CMakePresets moved into engine/; test arg bug; ABI extern decls; emcc→em++ link
+- Next 5: M2 graph validators/heap/BFS/DFS/A*/objectives/traffic/position-route; sanitizer preset; ≥40-fixture growth; dataset design; lab trace schema
+- Blockers: none for M2

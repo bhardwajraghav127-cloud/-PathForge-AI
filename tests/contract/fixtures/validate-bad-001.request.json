@@ -1,0 +1,1 @@
+{"apiVersion":1,"requestId":"validate-bad-001","command":"network.validate","payload":{"network":{"schemaVersion":1,"vertices":[{"id":"a","lat":0,"lon":0},{"id":"a","lat":0,"lon":0}],"roads":[]}}}
