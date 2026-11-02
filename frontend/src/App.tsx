@@ -8,6 +8,7 @@ import RoutePlanner from './pages/RoutePlanner';
 import SmartDemo from './pages/SmartDemo';
 import Fleet from './pages/Fleet';
 import RealRoads from './pages/RealRoads';
+import RealDemo from './pages/RealDemo';
 import Journey from './pages/Journey';
 import MultiStop from './pages/MultiStop';
 import Scenarios from './pages/Scenarios';
@@ -18,6 +19,7 @@ const LINKS = [
   ['/demo', 'Smart Demo'],
   ['/fleet', 'Fleet'],
   ['/real', 'Real Roads'],
+  ['/real-demo', 'Real Demo'],
   ['/route', 'Route Planner'],
   ['/journey', 'Journey'],
   ['/multistop', 'Multi-Stop'],
@@ -84,6 +86,7 @@ export default function App() {
             <Route path="/demo" element={<SmartDemo />} />
             <Route path="/fleet" element={<Fleet />} />
             <Route path="/real" element={<RealRoads />} />
+            <Route path="/real-demo" element={<RealDemo />} />
             <Route path="/route" element={<RoutePlanner />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/multistop" element={<MultiStop />} />

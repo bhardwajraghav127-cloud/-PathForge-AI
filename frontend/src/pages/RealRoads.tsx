@@ -12,8 +12,8 @@ import { EngineError } from '../engine/EngineClient';
 import { formatMetres, formatSeconds } from '../data/dataset';
 import { DemoRouteSchema } from '../demo/scenario';
 import {
-  REAL_BOUNDS, REAL_CENTER, REAL_GEOMETRY, REAL_PLACES, REAL_VERTICES,
-  nearestVertex, realLabels, realNetworkPayload, realRoadsGeo,
+  REAL_BOUNDS, REAL_CENTER, REAL_PLACES, REAL_VERTICES,
+  joinArcs, nearestVertex, realLabels, realNetworkPayload, realRoadsGeo,
 } from '../realmap/realData';
 import { REAL_META } from '../realmap/realMeta';
 
@@ -29,25 +29,6 @@ interface Endpoint {
   lon: number;
   label: string;
   snapM: number;
-}
-
-function arcCoords(arcId: string): [number, number][] {
-  const [road, dir] = arcId.split(':');
-  const g = REAL_GEOMETRY[road ?? '']?.coords ?? [];
-  return dir === 'r' ? [...g].reverse() : g;
-}
-
-function joinArcs(arcs: string[]): [number, number][] {
-  const out: [number, number][] = [];
-  for (const a of arcs) {
-    const c = arcCoords(a);
-    for (let i = 0; i < c.length; i++) {
-      if (out.length > 0 && i === 0) continue;
-      const p = c[i];
-      if (p) out.push(p);
-    }
-  }
-  return out;
 }
 
 export default function RealRoads() {
