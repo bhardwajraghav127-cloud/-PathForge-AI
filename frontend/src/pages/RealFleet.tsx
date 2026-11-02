@@ -417,7 +417,7 @@ export default function RealFleet() {
     injected.current = { incidents: [], closures: [], factors: [] };
   }
 
-  function simulateIncident() {
+  async function simulateIncident() {
     const s = useRealFleet.getState();
     if (s.status !== 'running' && s.status !== 'paused') return;
     const target = (s.selectedId && s.vehicles[s.selectedId]?.status === 'enroute'
@@ -429,15 +429,54 @@ export default function RealFleet() {
       return;
     }
     const t = useRealTraffic.getState();
-    const future = target.planArcs.slice(m.arcIdx + 1);
-    const road = future.map(roadOf).find((r) => !t.closures.includes(r))
-      ?? roadOf(target.planArcs[m.arcIdx] ?? '');
-    if (!road || !closeRoadTrack(road)) {
-      pushToast('No eligible road ahead', 'error');
-      return;
+    // Candidates: distinct future roads entered >=30 sim-s ahead, so the
+    // vehicle cannot drive past the closure before the check roundtrip
+    // lands, even on a loaded machine.
+    const cur = m.arcIdx;
+    let ahead = (m.durations[cur] ?? 0) * (1 - m.frac / 1000);
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    for (let i = cur + 1; i < target.planArcs.length && candidates.length < 6; i++) {
+      if (i > cur + 1) ahead += m.durations[i - 1] ?? 0;
+      const road = roadOf(target.planArcs[i] ?? '');
+      if (road && ahead >= 30 && !seen.has(road) && !t.closures.includes(road)) {
+        seen.add(road);
+        candidates.push(road);
+      }
     }
-    useRealFleet.getState().pushEvent(fleetSim.current, target.id, `SIMULATED incident: ${road} closed (affects ${target.id} route)`);
-    pushToast(`SIMULATED incident: ${road} closed`, 'error');
+    // Trial-verify each candidate against the real policy: inject the first
+    // closure the engine confirms would notify. No toast-and-hope.
+    for (const road of candidates) {
+      try {
+        const liveArc = target.planArcs[m.arcIdx];
+        if (!liveArc) break;
+        const o = await engineClient.call('diversion.evaluate', {
+          network: realNetworkPayload(),
+          overlay: { ...t.overlay(), closures: [...t.closures, road] },
+          plan: { arcs: target.planArcs.slice(m.arcIdx) },
+          position: { arc: liveArc, fractionPermille: Math.max(0, Math.min(1000, Math.floor(m.frac))) },
+          simTimeS: Math.floor(m.simTimeS),
+          config: { thresholdS: DIVERSION_THRESHOLD_S }, policy: m.policy,
+        }, { channel: `realfleet-trial-${target.id}` });
+        if (o.stale) continue;
+        const d = DemoDivSchema.parse(o.result);
+        if (d.notify && d.decision !== 'NO_ROUTE_AVAILABLE' && closeRoadTrack(road)) {
+          useRealFleet.getState().pushEvent(
+            fleetSim.current, target.id,
+            `SIMULATED incident: ${road} closed (verified ${d.decision} for ${target.id})`,
+          );
+          pushToast(`SIMULATED incident: ${road} closed`, 'error');
+          return;
+        }
+      } catch {
+        /* trial failed — try the next candidate road */
+      }
+    }
+    useRealFleet.getState().pushEvent(
+      fleetSim.current, target.id,
+      `Incident search found no notifying closure ahead of ${target.id}; traffic unchanged`,
+    );
+    pushToast('No closure ahead would change a route right now', 'error');
   }
 
   function emergencyDrill() {
@@ -550,8 +589,10 @@ export default function RealFleet() {
           if (permille < 1000) bad.add(k);
         }
         for (const id of s.order) {
-          const v = s.vehicles[id];
           const m = mut.current.get(id);
+          // Re-read live state: a vehicle may have completed earlier in this
+          // same frame, and the stale snapshot would overwrite its final SLA.
+          const v = useRealFleet.getState().vehicles[id];
           if (!v || !m || (v.status !== 'enroute' && v.status !== 'awaiting')) continue;
           const future = v.planArcs.slice(m.arcIdx);
           const affected = [...new Set(future.map(roadOf).filter((r) => bad.has(r)))];
@@ -682,7 +723,7 @@ export default function RealFleet() {
                 </button>
               )}
               {(fleet.status === 'running' || fleet.status === 'paused') && !replay && (
-                <button className="pf-btn" onClick={simulateIncident} data-testid="realfleet-incident">
+                <button className="pf-btn" onClick={() => void simulateIncident()} data-testid="realfleet-incident">
                   Simulate Incident
                 </button>
               )}

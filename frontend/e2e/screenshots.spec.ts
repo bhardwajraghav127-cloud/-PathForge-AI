@@ -6,6 +6,8 @@ import { expect, test } from '@playwright/test';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SHOTS = path.resolve(HERE, '..', '..', 'docs', 'screenshots');
 
+test.setTimeout(300000);
+
 test('release screenshots', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/#/');
@@ -58,6 +60,7 @@ test('release screenshots', async ({ page }) => {
   await expect(page.getByTestId('fleet-vdecision-V1')).toBeVisible({ timeout: 60000 });
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(SHOTS, 'fleet-incident.png') });
+  await page.getByTestId('fleet-reset').click();
 
   await page.goto('/#/settings');
   await page.getByTestId('theme-toggle').click();
@@ -65,5 +68,46 @@ test('release screenshots', async ({ page }) => {
   await page.goto('/#/route');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: path.join(SHOTS, 'route-dark.png') });
+  await page.goto('/#/settings');
+  await page.getByTestId('theme-toggle').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  // 3.0 real-maps captures: genuine OSM streets, real engine results.
+  await page.goto('/#/real');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await expect(page.getByTestId('realmap-canvas').locator('canvas')).toBeVisible({ timeout: 30000 });
+  await page.locator('#real-origin').fill('Connaught');
+  await page.getByTestId('real-origin-option-p561299050').click();
+  await page.locator('#real-dest').fill('Central Vista');
+  await page.getByTestId('real-dest-option-p6666318646').click();
+  await page.getByTestId('real-find').click();
+  await expect(page.getByTestId('real-result')).toBeVisible({ timeout: 60000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: path.join(SHOTS, 'real-route.png') });
+
+  await page.goto('/#/real-demo');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await page.getByTestId('realdemo-speed').selectOption('60');
+  await page.getByTestId('realdemo-start').click();
+  await expect(page.getByTestId('realdemo-decision')).toBeVisible({ timeout: 120000 });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: path.join(SHOTS, 'real-demo.png') });
+  await page.getByTestId('realdemo-replay').click();
+
+  await page.goto('/#/real-fleet');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await page.getByTestId('realfleet-speed').selectOption('10');
+  await page.getByTestId('realfleet-start').click();
+  await expect(page.getByTestId('realfleet-vehicle-F5')).toBeVisible({ timeout: 90000 });
+  await expect(page.getByTestId('realfleet-status')).toContainText('running', { timeout: 60000 });
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: path.join(SHOTS, 'real-fleet.png') });
+
+  await page.goto('/#/real-lab');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await page.getByTestId('reallab-run').click();
+  await expect(page.getByTestId('reallab-table')).toBeVisible({ timeout: 120000 });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: path.join(SHOTS, 'real-lab.png') });
   expect(true).toBe(true);
 });

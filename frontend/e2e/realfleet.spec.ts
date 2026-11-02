@@ -77,6 +77,9 @@ test('real fleet completes with reconciled KPIs', async ({ page }) => {
   await expect(page.getByTestId('realfleet-status')).toContainText('completed', { timeout: 120000 });
   for (const id of ['F1', 'F2', 'F3', 'F4', 'F5']) {
     await expect(page.getByTestId(`realfleet-vstatus-${id}`)).toHaveText('completed');
+    // Final SLA is terminal (met/missed): the progress mirror must never
+    // overwrite it with a stale projected value after completion.
+    await expect(page.getByTestId(`realfleet-vsla-${id}`)).toHaveText(/SLA (met|missed)/);
   }
   await expect(page.getByTestId('realfleet-kpi-completed')).toHaveText('5');
   await expect(page.getByTestId('realfleet-kpi-sla')).toHaveText('5/0');

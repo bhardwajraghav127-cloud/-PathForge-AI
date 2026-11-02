@@ -15,6 +15,17 @@ render engine facts. There is no pathfinding in TypeScript —
 Faculty fast path: start the app, open `#/demo`, click **Start Smart Demo**.
 Full script: `docs/V2_DEMO_SCRIPT.md`; Q&A bank: `docs/V2_VIVA_QA.md`.
 
+**3.0 Zero-Cost Real Maps** (branch `real-maps-3.0`, R0–R8 complete): the same
+C++/WASM engine now also routes on genuine OpenStreetMap streets — a validated
+7,052-vertex / 9,423-road directed graph of New Delhi rendered with MapLibre
+from a fully local style (₹0, no keys, offline-capable). New pages: Real Roads
+planner, Real Smart Demo, Real Fleet Command, Real Lab (Dijkstra-vs-A* race,
+inspector, viva walkthrough). Plan + completion record:
+`docs/REAL_MAPS_IMPLEMENTATION_PLAN.md`; benchmarks:
+`docs/benchmarks/REAL_MAPS_BENCH.md`; captures:
+`docs/screenshots/real-{route,demo,fleet,lab}.png`. OSM data © OpenStreetMap
+contributors (ODbL); times are class-based estimates, incidents simulated.
+
 ## Quickstart (fresh clone)
 
 Prerequisites: `cmake`, `ninja`, Node 20+, and Emscripten (`emsdk`) for the
@@ -55,7 +66,8 @@ React pages ──► EngineClient ──► WASM worker ──► C++ engine (D
 
 Pages: Dashboard, Smart Demo, Fleet Command Center, Route Planner, Journey
 Simulator, Multi-Stop Planner, Scenario Comparison, Algorithm Laboratory,
-Settings — see `docs/architecture/` and `docs/V2_ARCHITECTURE_AND_BASELINE.md`. The engine ABI is a stateless JSON envelope
+Settings, plus 3.0 Real Roads, Real Demo, Real Fleet, Real Lab — see
+`docs/architecture/` and `docs/V2_ARCHITECTURE_AND_BASELINE.md`. The engine ABI is a stateless JSON envelope
 (`engine.info`, `route.find/alternatives/evaluate/compare/multistop`,
 `lab.run/compare`, `scenario.compare`, `diversion.evaluate`,
 `network.validate`).
@@ -79,6 +91,8 @@ Settings — see `docs/architecture/` and `docs/V2_ARCHITECTURE_AND_BASELINE.md`
 M0–M11 verified with tags `m1-verified … m11-verified`; release `v1.0.0`.
 65/65 gtest, sanitizers clean, 32/32 parity, 32/32 E2E, audit 0 findings.
 2.0 work-in-progress lives on branch `fleet-2.0` (V0–V8, unmerged).
+3.0 on branch `real-maps-3.0`: 65/65 gtest, sanitizers clean, 34/34 parity
+(incl. 2 real-graph fixtures), 52/52 E2E, antifake PASS, audit 0 findings.
 Traceability: `docs/TRACEABILITY.md` (44 VERIFIED). Known exception: C++
 line coverage below the 90% aspiration in `yen/lab/diversion/engine`
 — see `docs/testing/c3-demo-report.md`.
