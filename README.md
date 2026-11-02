@@ -1,14 +1,19 @@
 # PathForge AI — Intelligent Route Optimization & Graph Algorithm Visualization System
 
-> **SIMULATED DATA — NOT LIVE GPS OR TRAFFIC.** All roads, times, tolls and
+> **SIMULATION — NOT LIVE GPS, DISPATCH OR TRAFFIC.** All roads, times, tolls and
 > incidents are synthetic (`datasets/sample-networks/north-india-sim-v1.json`,
 > 20 vertices / 42 roads). See `docs/data-provenance.md` before reusing the
 > dataset; OpenStreetMap data carries ODbL obligations if you substitute it.
 
-A hybrid navigation simulator + ADSA laboratory. Every route, diversion,
-multi-stop tour and lab trace is computed by a genuine C++17 engine compiled
-to WebAssembly; React + TypeScript + Cytoscape.js only render engine facts.
-There is no pathfinding in TypeScript — `scripts/antifake.sh` enforces this.
+An intelligent traffic & fleet decision system: one-click Smart Journey Demo,
+5-vehicle Fleet Command Center, explainable routing, and an ADSA laboratory.
+Every route, diversion, multi-stop tour and lab trace is computed by a genuine
+C++17 engine compiled to WebAssembly; React + TypeScript + Cytoscape.js only
+render engine facts. There is no pathfinding in TypeScript —
+`scripts/antifake.sh` enforces this.
+
+Faculty fast path: start the app, open `#/demo`, click **Start Smart Demo**.
+Full script: `docs/V2_DEMO_SCRIPT.md`; Q&A bank: `docs/V2_VIVA_QA.md`.
 
 ## Quickstart (fresh clone)
 
@@ -36,7 +41,7 @@ Useful commands:
 | `bash scripts/bench-engine.sh [seed]` | Seeded micro-benchmarks → `docs/benchmarks/` |
 | `bash scripts/coverage.sh` | Measured line coverage → `docs/testing/coverage.md` |
 | `bash scripts/antifake.sh` | No TS pathfinding; worker delegates to WASM |
-| `cd frontend && npx playwright test` | 10/10 browser E2E incl. 14-step hero demo |
+| `cd frontend && npx playwright test` | 32/32 browser E2E incl. demo, fleet, explain, mobile |
 
 ## Architecture
 
@@ -48,9 +53,9 @@ React pages ──► EngineClient ──► WASM worker ──► C++ engine (D
       └────────────── engine facts only ─────────────────┘
 ```
 
-Pages: Dashboard, Route Planner, Journey Simulator, Multi-Stop Planner,
-Scenario Comparison, Algorithm Laboratory, Settings — see
-`docs/architecture/`. The engine ABI is a stateless JSON envelope
+Pages: Dashboard, Smart Demo, Fleet Command Center, Route Planner, Journey
+Simulator, Multi-Stop Planner, Scenario Comparison, Algorithm Laboratory,
+Settings — see `docs/architecture/` and `docs/V2_ARCHITECTURE_AND_BASELINE.md`. The engine ABI is a stateless JSON envelope
 (`engine.info`, `route.find/alternatives/evaluate/compare/multistop`,
 `lab.run/compare`, `scenario.compare`, `diversion.evaluate`,
 `network.validate`).
@@ -72,7 +77,8 @@ Scenario Comparison, Algorithm Laboratory, Settings — see
 ## Verification status
 
 M0–M11 verified with tags `m1-verified … m11-verified`; release `v1.0.0`.
-65/65 gtest, sanitizers clean, 32/32 parity, 10/10 E2E, audit 0 findings.
+65/65 gtest, sanitizers clean, 32/32 parity, 32/32 E2E, audit 0 findings.
+2.0 work-in-progress lives on branch `fleet-2.0` (V0–V8, unmerged).
 Traceability: `docs/TRACEABILITY.md` (44 VERIFIED). Known exception: C++
 line coverage below the 90% aspiration in `yen/lab/diversion/engine`
 — see `docs/testing/c3-demo-report.md`.
@@ -91,8 +97,9 @@ Full script: `docs/demo-script.md`. Q&A bank: `docs/viva.md`.
 
 - Built a C++17 routing engine (Dijkstra/A*/Yen/Held-Karp/Prim/Kruskal,
   diversion policy) compiled to WASM with 65/65 gtest + ASan/UBSan clean.
-- Drove 10/10 Playwright E2E against real-engine oracles (native binary as
-  independent checker), incl. a 14-step hero demo and journey/diversion flows.
+- Drove 32/32 Playwright E2E against real-engine oracles (native binary as
+  independent checker), incl. smart demo, 5-vehicle fleet, explainability and
+  mobile flows.
 - Measured native↔WASM parity (32/32), seeded benchmarks to 4900 nodes, and
   line coverage; shipped zero-vulnerability deps and release `v1.0.0`.
 

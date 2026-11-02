@@ -34,6 +34,31 @@ test('release screenshots', async ({ page }) => {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(SHOTS, 'lab.png') });
 
+  await page.goto('/#/demo');
+  await page.getByTestId('engine-status').filter({ hasText: 'ready' }).waitFor({ timeout: 30000 });
+  await page.getByTestId('demo-guided').uncheck();
+  await page.getByTestId('demo-speed').selectOption('600');
+  await page.getByTestId('demo-start').click();
+  await expect(page.getByTestId('demo-decision')).toBeVisible({ timeout: 90000 });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: path.join(SHOTS, 'demo.png') });
+  await page.getByTestId('demo-accept').click();
+  await expect(page.getByTestId('demo-receipt')).toBeVisible({ timeout: 30000 });
+  await page.getByTestId('demo-replay').click();
+
+  await page.goto('/#/fleet');
+  await page.getByTestId('fleet-speed').selectOption('60');
+  await page.getByTestId('fleet-start').click();
+  await expect(page.getByTestId('fleet-vehicle-V5')).toBeVisible({ timeout: 60000 });
+  await page.waitForTimeout(2500);
+  await page.getByTestId('fleet-show').selectOption('all');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(SHOTS, 'fleet.png') });
+  await page.getByTestId('fleet-preset-closure').click();
+  await expect(page.getByTestId('fleet-vdecision-V1')).toBeVisible({ timeout: 60000 });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(SHOTS, 'fleet-incident.png') });
+
   await page.goto('/#/settings');
   await page.getByTestId('theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
