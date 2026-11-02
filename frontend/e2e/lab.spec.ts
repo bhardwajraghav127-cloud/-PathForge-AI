@@ -107,5 +107,22 @@ test('AC-19 lab algorithms, determinism, MST agreement', async ({ page }) => {
   await page.getByTestId('lab-compare').click();
   await expect(page.getByTestId('lab-cost-agreement')).toContainText('true', { timeout: 30000 });
 
+  // REQ-18: custom graph editor + engine validation, then run on the edit.
+  await page.selectOption('#lab-net', 'custom');
+  await expect(page.getByTestId('lab-custom-counts')).toContainText('2 vertices');
+  await page.fill('#lab-new-v', 'c');
+  await page.getByTestId('lab-add-v').click();
+  await page.selectOption('#lab-road-from', 'b');
+  await page.selectOption('#lab-road-to', 'c');
+  await page.getByTestId('lab-add-road').click();
+  await expect(page.getByTestId('lab-custom-counts')).toContainText('3 vertices');
+  await expect(page.getByTestId('lab-custom-counts')).toContainText('2 roads');
+  await page.getByTestId('lab-validate').click();
+  await expect(page.getByTestId('lab-issues').locator('li')).toHaveCount(0);
+  await page.selectOption('#lab-algo', 'BFS');
+  await page.getByTestId('lab-run').click();
+  await expect(page.getByTestId('lab-order')).toContainText('a', { timeout: 30000 });
+  await expect(page.getByTestId('lab-order')).toContainText('c');
+
   expect(consoleErrors).toEqual([]);
 });

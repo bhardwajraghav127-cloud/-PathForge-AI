@@ -65,11 +65,30 @@ const CmpSchema = z.object({
   comparison: z.object({ costAgreement: z.boolean().nullable().optional() }).passthrough(),
 }).passthrough();
 
+const EMPTY_CUSTOM: Dataset = {
+  schemaVersion: 1,
+  vertices: [
+    { id: 'a', name: 'A', lat: 28.0, lon: 77.0 },
+    { id: 'b', name: 'B', lat: 28.0, lon: 77.0001 },
+  ],
+  roads: [
+    { id: 'ab', from: 'a', to: 'b', oneWay: true, distanceM: 10, baselineTimeS: 10, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: 'a-b', available: true },
+  ],
+};
+
 export default function Lab() {
   const engineStatus = useEngineStatus();
   const trafficVersion = useTraffic((s) => s.version);
   const overlayOf = useTraffic((s) => s.overlay);
   const [netId, setNetId] = useState('tiny');
+  const [custom, setCustom] = useState<Dataset>(EMPTY_CUSTOM);
+  const [newVid, setNewVid] = useState('c');
+  const [roadFrom, setRoadFrom] = useState('a');
+  const [roadTo, setRoadTo] = useState('b');
+  const [roadDist, setRoadDist] = useState('10');
+  const [roadTime, setRoadTime] = useState('10');
+  const [roadOneWay, setRoadOneWay] = useState(true);
+  const [issues, setIssues] = useState<string[]>([]);
   const [algo, setAlgo] = useState('BFS');
   const [source, setSource] = useState('a');
   const [target, setTarget] = useState('c');
@@ -85,8 +104,25 @@ export default function Lab() {
   const [cmpB, setCmpB] = useState('A_STAR');
   const [cmp, setCmp] = useState<z.infer<typeof CmpSchema> | null>(null);
 
-  const net: Dataset = netId === 'tiny' ? TINY : DATASET;
+  const net: Dataset = netId === 'tiny' ? TINY : netId === 'dataset' ? DATASET : custom;
   const vertexIds = useMemo(() => net.vertices.map((v) => v.id), [net]);
+
+  useEffect(() => {
+    if (!vertexIds.includes(source)) setSource(vertexIds[0] ?? '');
+    if (!vertexIds.includes(target)) setTarget(vertexIds[vertexIds.length - 1] ?? '');
+  }, [vertexIds, source, target]);
+
+  async function validateCustom() {
+    setIssues([]);
+    try {
+      const o = await engineClient.call('network.validate', { network: custom }, { channel: 'lab-validate' });
+      if (o.stale) return;
+      const r = o.result as { valid?: boolean; issues?: { code?: string; message?: string }[] };
+      setIssues((r.issues ?? []).map((i) => `${i.code ?? '?'}: ${i.message ?? ''}`));
+    } catch (e) {
+      setIssues([`ERROR: ${e instanceof EngineError ? e.message : String(e)}`]);
+    }
+  }
 
   useEffect(() => {
     if (!playing || !result) return;
@@ -168,9 +204,10 @@ export default function Lab() {
             <div className="pf-row">
               <div className="pf-field">
                 <label htmlFor="lab-net">Network</label>
-                <select id="lab-net" value={netId} onChange={(e) => { setNetId(e.target.value); setSource('a'); setTarget('c'); }} data-testid="lab-net">
+                <select id="lab-net" value={netId} onChange={(e) => { setNetId(e.target.value); setSource('a'); setTarget('c'); setResult(null); }} data-testid="lab-net">
                   <option value="tiny">tiny-lab (4 nodes)</option>
                   <option value="dataset">north-india (20 nodes)</option>
+                  <option value="custom">custom (editable)</option>
                 </select>
               </div>
               <div className="pf-field">
@@ -253,6 +290,81 @@ export default function Lab() {
                   </li>
                 ))}
               </ol>
+            </section>
+          )}
+
+          {netId === 'custom' && (
+            <section className="pf-card" aria-label="Graph editor">
+              <h2>Graph editor</h2>
+              <div className="pf-row">
+                <div className="pf-field">
+                  <label htmlFor="lab-new-v">New vertex id</label>
+                  <input id="lab-new-v" value={newVid} onChange={(e) => setNewVid(e.target.value)} data-testid="lab-new-v" />
+                </div>
+                <button className="pf-btn" onClick={() => {
+                  const id = newVid.trim();
+                  if (!id || custom.vertices.some((v) => v.id === id)) return;
+                  const n = custom.vertices.length;
+                  setCustom((c) => ({
+                    ...c,
+                    vertices: [...c.vertices, { id, name: id.toUpperCase(), lat: 28.0 + 0.0001 * n, lon: 77.0 + 0.0001 * n }],
+                  }));
+                  setNewVid('');
+                }} data-testid="lab-add-v">Add vertex</button>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field">
+                  <label htmlFor="lab-road-from">From</label>
+                  <select id="lab-road-from" value={roadFrom} onChange={(e) => setRoadFrom(e.target.value)} data-testid="lab-road-from">
+                    {custom.vertices.map((v) => <option key={v.id} value={v.id}>{v.id}</option>)}
+                  </select>
+                </div>
+                <div className="pf-field">
+                  <label htmlFor="lab-road-to">To</label>
+                  <select id="lab-road-to" value={roadTo} onChange={(e) => setRoadTo(e.target.value)} data-testid="lab-road-to">
+                    {custom.vertices.map((v) => <option key={v.id} value={v.id}>{v.id}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field">
+                  <label htmlFor="lab-road-dist">Distance (m)</label>
+                  <input id="lab-road-dist" value={roadDist} onChange={(e) => setRoadDist(e.target.value)} data-testid="lab-road-dist" />
+                </div>
+                <div className="pf-field">
+                  <label htmlFor="lab-road-time">Time (s)</label>
+                  <input id="lab-road-time" value={roadTime} onChange={(e) => setRoadTime(e.target.value)} data-testid="lab-road-time" />
+                </div>
+                <div className="pf-field">
+                  <label htmlFor="lab-road-oneway">One-way</label>
+                  <input id="lab-road-oneway" type="checkbox" checked={roadOneWay} onChange={(e) => setRoadOneWay(e.target.checked)} data-testid="lab-road-oneway" />
+                </div>
+              </div>
+              <div className="pf-row">
+                <button className="pf-btn" onClick={() => {
+                  const d = Number(roadDist);
+                  const t = Number(roadTime);
+                  if (!Number.isFinite(d) || !Number.isFinite(t) || d <= 0 || t <= 0) return;
+                  if (!custom.vertices.some((v) => v.id === roadFrom) || !custom.vertices.some((v) => v.id === roadTo)) return;
+                  const id = `${roadFrom}${roadTo}${custom.roads.length}`;
+                  if (custom.roads.some((r) => r.id === id)) return;
+                  setCustom((c) => ({
+                    ...c,
+                    roads: [...c.roads, { id, from: roadFrom, to: roadTo, oneWay: roadOneWay, distanceM: d, baselineTimeS: t, refSpeedKph: 4, tollInr: 0, roadType: 'custom', name: id, available: true }],
+                  }));
+                }} data-testid="lab-add-road">Add road</button>
+                <button className="pf-btn" onClick={() => {
+                  if (custom.roads.length === 0) return;
+                  setCustom((c) => ({ ...c, roads: c.roads.slice(0, -1) }));
+                }} data-testid="lab-remove-road">Remove last road</button>
+                <button className="pf-btn" onClick={() => void validateCustom()} data-testid="lab-validate">Validate</button>
+              </div>
+              <p className="pf-meta" data-testid="lab-custom-counts">
+                {custom.vertices.length} vertices · {custom.roads.length} roads
+              </p>
+              <ul data-testid="lab-issues">
+                {issues.map((i, k) => <li key={k}>{i}</li>)}
+              </ul>
             </section>
           )}
 

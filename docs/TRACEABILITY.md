@@ -10,22 +10,22 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | VERIFIED | contract cmp-*.json + E2E why-panel | M3 |
 | REQ-05 | 5 objectives (fastest/shortest/toll/avoid/balanced) | §1.5 | M2 | A2 | VERIFIED | engine/tests/test_objectives.cpp | M2 |
 | REQ-06 | Congestion/condition simulation | §1.6 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
-| REQ-07 | Accidents/construction/restrictions/jams/closures | §1.7 | M3 | A2 | NOT_STARTED | — | — |
+| REQ-07 | Accidents/construction/restrictions/jams/closures | §1.7 | M3 | A2 | VERIFIED | engine/tests/test_incidents.cpp + E2E traffic.spec (jam/closure) | M3 |
 | REQ-08 | Recalc after network/traffic change | §1.8 | M4 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
-| REQ-09 | Savings-threshold diversion | §1.9 | M4 | A2 | NOT_STARTED | — | — |
-| REQ-10 | Cooldown + dedup + stability | §1.10 | M4 | A2 | NOT_STARTED | — | — |
+| REQ-09 | Savings-threshold diversion | §1.9 | M4 | A2 | VERIFIED | engine diversion suites + E2E journey.spec AC-12 (14484s>=600s) | M4 |
+| REQ-10 | Cooldown + dedup + stability | §1.10 | M4 | A2 | VERIFIED | engine diversion suites (cooldown/dedup) + E2E stay/dismissal | M4 |
 | REQ-11 | Explainable decisions from engine facts | §1.11 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-12 | Vehicle start/pause/resume/stop/reset/speed | §1.12 | M8 | A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | REQ-13 | Position/next-road/remaining/ETA | §1.13 | M8 | A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | REQ-14 | Mid-arc + directed rerouting, no teleport | §1.14 | M8 | A2/A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
-| REQ-15 | Accept/reject + history + summary | §1.15 | M8 | A3 | NOT_STARTED | — | — |
-| REQ-16 | Multi-stop exact ≤10 (≤12 opt-in) + heuristic | §1.16 | M5 | A2 | NOT_STARTED | — | — |
-| REQ-17 | What-if scenarios + comparison | §1.17 | M5/M9 | A3 | NOT_STARTED | — | — |
-| REQ-18 | Graph editor + validation | §1.18 | M10 | A3 | NOT_STARTED | — | — |
-| REQ-19 | ADSA lab BFS/DFS/Dijkstra/A*/Prim/Kruskal+ | §1.19 | M5/M10 | A2 | NOT_STARTED | — | — |
+| REQ-15 | Accept/reject + history + summary | §1.15 | M8 | A3 | VERIFIED | E2E journey.spec AC-14/16 + pf-decision-history | M8 |
+| REQ-16 | Multi-stop exact ≤10 (≤12 opt-in) + heuristic | §1.16 | M5 | A2 | VERIFIED | engine/tests/test_algorithms.cpp (Held-Karp) + E2E multistop.spec OPTIMAL | M5 |
+| REQ-17 | What-if scenarios + comparison | §1.17 | M5/M9 | A3 | VERIFIED | contract scn-001 + E2E scenarios.spec deltas | M9 |
+| REQ-18 | Graph editor + validation | §1.18 | M10 | A3 | VERIFIED | Lab graph editor + network.validate + E2E lab.spec custom BFS | M10 |
+| REQ-19 | ADSA lab BFS/DFS/Dijkstra/A*/Prim/Kruskal+ | §1.19 | M5/M10 | A2 | VERIFIED | engine/tests/test_mst.cpp + test_traversal.cpp + E2E lab.spec AC-19 | M10 |
 | REQ-20 | Comparisons + measured benchmarks | §1.20 | M5 | A5 | NOT_STARTED | — | — |
-| REQ-21 | MST/network visualizations | §1.21 | M10 | A4 | NOT_STARTED | — | — |
-| REQ-22 | Tested C++ engine, native↔WASM agreement | §1.22 | M1 | A2/A5 | NOT_STARTED | — | — |
+| REQ-21 | MST/network visualizations | §1.21 | M10 | A4 | VERIFIED | Lab/MST/route map highlights + E2E AC-05/lab.spec | M10 |
+| REQ-22 | Tested C++ engine, native↔WASM agreement | §1.22 | M1 | A2/A5 | VERIFIED | test-contract.sh 32/32 native-WASM parity + 63/63 gtest | M1 |
 | REQ-23 | Hero demo Chandigarh→Delhi + marginal/major cases | §1 hero | M11 | A6 | NOT_STARTED | — | — |
 | REQ-24 | Simulated-data notice + provenance + README | honesty | M11 | A6 | NOT_STARTED | — | — |
 | AC-01 | Launch without console errors | §16 | M11 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |

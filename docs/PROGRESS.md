@@ -87,3 +87,8 @@
 - Fixed E2E trap: read of absent lab-order burned the action timeout and the
   teardown blamed an innocent click; determinism asserts li counts + route text
 - Evidence: e2e 6/6, verify-all 7 stages PASS
+
+## 2026-11-02 — M10 follow-up (REQ-18 closed)
+- Lab custom-network editor (add vertex/road, remove road, engine validate)
+  + E2E: custom 3-node BFS order contains the added vertex
+- Traceability: 41 VERIFIED; remaining: REQ-20 (bench), REQ-23/24 + AC-20 (M11)
