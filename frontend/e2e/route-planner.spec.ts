@@ -73,6 +73,7 @@ test('AC-01..AC-06 route planner against the real engine', async ({ page }) => {
   expect(expected.found).toBe(true);
   await page.getByTestId('find-route').click();
   await expect(page.getByTestId('route-result')).toBeVisible({ timeout: 30000 });
+  await page.getByTestId('planner-tabs-steps').click();
 
   const renderedArcs = await page.getByTestId('route-steps').locator('li').allTextContents();
   expect(renderedArcs.length).toBe(expected.arcs.length);
@@ -95,6 +96,7 @@ test('AC-01..AC-06 route planner against the real engine', async ({ page }) => {
   expect(highlighted.sort()).toEqual(expected.arcs.map((a) => a.arcId).sort());
 
   // AC-06: displayed facts equal engine facts.
+  await page.getByTestId('planner-tabs-overview').click();
   await expect(page.getByTestId('fact-distance')).toContainText(`(${expected.distanceM} m)`);
   await expect(page.getByTestId('fact-time')).toContainText(`(${expected.timeS} s)`);
   await expect(page.getByTestId('fact-toll')).toContainText(`(${expected.tollInr})`);

@@ -73,9 +73,13 @@ export interface CompareDelta {
   incidentIds: string[];
 }
 
+export interface PlannerInputs { source: string; target: string; objective: string }
+
 interface RouteState {
   phase: RoutePhase;
   params: { source: string; target: string; objective: string } | null;
+  planner: PlannerInputs;
+  setPlanner: (p: Partial<PlannerInputs>) => void;
   facts: RouteFacts | null;
   error: string;
   alternatives: AltRoute[];
@@ -92,6 +96,8 @@ interface RouteState {
 export const useRoute = create<RouteState>()((set) => ({
   phase: 'idle',
   params: null,
+  planner: { source: 'chandigarh', target: 'delhi', objective: 'FASTEST' },
+  setPlanner: (p) => set((s) => ({ planner: { ...s.planner, ...p } })),
   facts: null,
   error: '',
   alternatives: [],

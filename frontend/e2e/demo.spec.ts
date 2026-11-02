@@ -45,8 +45,10 @@ test('14-step hero demo Chandigarh to Delhi', async ({ page }) => {
   const route = r.result as unknown as { arcs: { arcId: string }[]; timeS: number };
   await expect(page.getByTestId('fact-time')).toContainText(`(${route.timeS} s)`);
   // 4. Alternatives listed.
+  await page.getByTestId('planner-tabs-compare').click();
   await expect(page.getByTestId('alt-list')).toBeVisible({ timeout: 30000 });
   // 5. Why This Route explains.
+  await page.getByTestId('planner-tabs-why').click();
   await page.getByTestId('why-toggle').click();
   await expect(page.getByTestId('why-best')).toBeVisible();
   // 6. Marginal jam: overlay versions, route still found after recompute.

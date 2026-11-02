@@ -1,13 +1,14 @@
-// Route planner panel: O/D autocomplete, objective, Find Best Route, engine
-// facts, alternatives and Why-This-Route attribution. All numbers come from
-// the WASM engine; this file only renders them.
-import { useEffect, useMemo, useRef, useState } from 'react';
+// Route planner panel (U4): searchable O/D, swap, My Places, tabbed results
+// (Overview / Steps / Compare / Why). All numbers come from the WASM engine.
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { VERTICES, formatInr, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
+import { usePlaces } from '../places';
 import { useRoute, type AltRoute, type CompareDelta, type RouteFacts } from '../store';
 import { useTraffic } from '../traffic';
+import { Chip, SearchSelect, Tabs, useToasts } from './ui';
 
 const OBJECTIVES = ['FASTEST', 'SHORTEST', 'LOWEST_TOLL', 'AVOID_CONGESTION', 'BALANCED'];
 
@@ -49,80 +50,40 @@ const CompareSchema = z.object({
   sharedArcs: z.array(z.string()).catch([]),
 });
 
-function PlaceInput({
-  id, label, value, onPick,
-}: {
-  id: string; label: string; value: string; onPick: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState('');
-  const [active, setActive] = useState(0);
-  const focused = text.length > 0 && open;
-  const matches = useMemo(() => {
-    const q = text.trim().toLowerCase();
-    const all = VERTICES.map((v) => ({ id: v.id, label: `${v.name} (${v.id})` }));
-    if (!q) return all.slice(0, 8);
-    return all.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 8);
-  }, [text]);
-  const shown = vertexName(value);
-  return (
-    <div className="pf-field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id} role="combobox" aria-expanded={focused} aria-controls={`${id}-list`}
-        aria-autocomplete="list" autoComplete="off" placeholder={shown} value={text}
-        onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' && matches.length > 0) { e.preventDefault(); setActive((a) => (a + 1) % matches.length); }
-          else if (e.key === 'ArrowUp' && matches.length > 0) { e.preventDefault(); setActive((a) => (a - 1 + matches.length) % matches.length); }
-          else if (e.key === 'Enter') {
-            const m = matches[active];
-            if (focused && m) { e.preventDefault(); onPick(m.id); setText(''); setOpen(false); }
-          } else if (e.key === 'Escape') setOpen(false);
-        }}
-      />
-      {focused && matches.length > 0 && (
-        <ul id={`${id}-list`} role="listbox" className="pf-suggest">
-          {matches.map((m, i) => (
-            <li key={m.id} role="option" aria-selected={i === active} data-testid={`${id}-option-${m.id}`}
-              onMouseDown={(e) => { e.preventDefault(); onPick(m.id); setText(''); setOpen(false); }}
-              onMouseEnter={() => setActive(i)}>
-              {m.label}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="pf-meta" data-testid={`${id}-current`}>Selected: {shown}</div>
-    </div>
-  );
-}
+const VERTEX_OPTIONS = VERTICES.map((v) => ({ id: v.id, label: `${v.name} (${v.id})` }));
 
 export default function RoutePanel() {
   const engineStatus = useEngineStatus();
-  const { phase, params, facts, error, alternatives, comparison, sharedArcs, selectedAlt, begin, succeed, fail, setExtras, selectAlt } = useRoute();
+  const route = useRoute();
+  const planner = useRoute((s) => s.planner);
+  const setPlanner = useRoute((s) => s.setPlanner);
   const trafficVersion = useTraffic((s) => s.version);
   const overlayOf = useTraffic((s) => s.overlay);
-  const [source, setSource] = useState('chandigarh');
-  const [target, setTarget] = useState('delhi');
-  const [objective, setObjective] = useState('FASTEST');
+  const places = usePlaces((s) => s.places);
+  const savePlace = usePlaces((s) => s.save);
+  const removePlace = usePlaces((s) => s.remove);
+  const pushToast = useToasts((s) => s.push);
+  const [placeName, setPlaceName] = useState('');
+  const [tab, setTab] = useState('overview');
   const [showWhy, setShowWhy] = useState(false);
   const lastVersion = useRef(1);
   const inFlight = useRef(false);
+  const { phase, params, facts, error } = route;
 
   async function compute(ovVersion: number) {
     if (inFlight.current) return;
     inFlight.current = true;
     try {
       const overlay = overlayOf();
+      const { source, target, objective } = useRoute.getState().planner;
       const base = { network: networkPayload(), overlay, source, target, objective };
       const o = await engineClient.call('route.find', { ...base, algorithm: 'DIJKSTRA' }, { channel: 'route' });
       if (o.stale) return;
       const found = RouteResultSchema.parse(o.result) as RouteFacts;
-      if (lastVersion.current !== ovVersion) return; // superseded by a newer edit
-      succeed(found);
+      if (lastVersion.current !== ovVersion) return;
+      route.succeed(found);
       if (found.found) {
+        pushToast(`Route found: ${found.arcs.length} segments, ${formatSeconds(found.timeS)}`);
         const ao = await engineClient.call(
           'route.alternatives',
           { ...base, maxCandidates: 10, maxAlternatives: 3 },
@@ -157,12 +118,16 @@ export default function RoutePanel() {
               shared = cp.sharedArcs;
             }
           }
-          if (lastVersion.current === ovVersion) setExtras(alts, deltas, shared);
+          if (lastVersion.current === ovVersion) route.setExtras(alts, deltas, shared);
         }
+      } else {
+        pushToast(`No route: ${found.reason || 'unreachable'}`, 'error');
       }
     } catch (e) {
       if (lastVersion.current === ovVersion) {
-        fail(e instanceof EngineError ? `${e.code}: ${e.message}` : String(e));
+        const msg = e instanceof EngineError ? `${e.code}: ${e.message}` : String(e);
+        route.fail(msg);
+        pushToast(msg, 'error');
       }
     } finally {
       inFlight.current = false;
@@ -171,11 +136,10 @@ export default function RoutePanel() {
 
   async function find() {
     lastVersion.current = trafficVersion;
-    begin({ source, target, objective });
+    route.begin({ ...planner });
     await compute(trafficVersion);
   }
 
-  // AC-11: traffic edits recompute the displayed route automatically.
   useEffect(() => {
     if (phase !== 'found' || !params) return;
     if (trafficVersion === lastVersion.current) return;
@@ -185,20 +149,31 @@ export default function RoutePanel() {
   }, [trafficVersion]);
 
   const busy = phase === 'calculating' || engineStatus === 'loading';
-  const displayed: RouteFacts | null = selectedAlt
-    ? (alternatives.find((a) => a.altId === selectedAlt) ?? facts)
+  const displayed: RouteFacts | null = route.selectedAlt
+    ? (route.alternatives.find((a) => a.altId === route.selectedAlt) ?? facts)
     : facts;
-  const bestDelta = comparison.find((c) => c.id === 'best');
+  const bestDelta = route.comparison.find((c) => c.id === 'best');
+  const slowest = route.alternatives.filter((a) => a.found).map((a) => a.timeS).reduce((m, t) => Math.max(m, t), 0);
 
   return (
     <div className="pf-panel">
       <section className="pf-card" aria-label="Route inputs">
         <h2>Plan a route</h2>
-        <PlaceInput id="origin" label="Origin" value={source} onPick={setSource} />
-        <PlaceInput id="destination" label="Destination" value={target} onPick={setTarget} />
+        <SearchSelect id="origin" label="Origin" options={VERTEX_OPTIONS} value={planner.source}
+          onPick={(id) => setPlanner({ source: id })} testid="origin" />
+        <div className="pf-row">
+          <button className="pf-btn small" data-testid="od-swap"
+            onClick={() => setPlanner({ source: planner.target, target: planner.source })}
+            aria-label="Swap origin and destination">
+            ⇅ Swap
+          </button>
+          <span className="pf-meta">Tip: tap any city on the map to set origin or destination.</span>
+        </div>
+        <SearchSelect id="destination" label="Destination" options={VERTEX_OPTIONS} value={planner.target}
+          onPick={(id) => setPlanner({ target: id })} testid="destination" />
         <div className="pf-field">
           <label htmlFor="objective">Objective</label>
-          <select id="objective" value={objective} onChange={(e) => setObjective(e.target.value)} data-testid="objective">
+          <select id="objective" value={planner.objective} onChange={(e) => setPlanner({ objective: e.target.value })} data-testid="objective">
             {OBJECTIVES.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
@@ -208,74 +183,165 @@ export default function RoutePanel() {
           </button>
         </div>
         <p className="pf-meta" data-testid="engine-status">Engine: {engineStatus}</p>
-      </section>
-
-      {phase === 'found' && displayed && (
-        <section className="pf-card" aria-label="Route result" data-testid="route-result">
-          <h2>{selectedAlt ? `Alternative ${selectedAlt}` : 'Best route'}</h2>
-          <p className="pf-meta">{displayed.objectiveDescription}</p>
-          <dl className="pf-facts">
-            <dt>Distance</dt><dd data-testid="fact-distance">{formatMetres(displayed.distanceM)} ({displayed.distanceM} m)</dd>
-            <dt>Time</dt><dd data-testid="fact-time">{formatSeconds(displayed.timeS)} ({displayed.timeS} s)</dd>
-            <dt>Toll</dt><dd data-testid="fact-toll">{formatInr(displayed.tollInr)} ({displayed.tollInr})</dd>
-            <dt>Traffic delay</dt><dd data-testid="fact-delay">{formatSeconds(displayed.delayS)} ({displayed.delayS} s)</dd>
-          </dl>
-          <h2>Steps ({displayed.arcs.length})</h2>
-          <ol className="pf-steps" data-testid="route-steps">
-            {displayed.arcs.map((a) => (
-              <li key={a.arcId} data-arc={a.arcId}>
-                {vertexName(a.from)} → {vertexName(a.to)} <code>{a.arcId}</code>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {phase === 'found' && facts?.found && alternatives.length > 0 && (
-        <section className="pf-card" aria-label="Alternative routes">
-          <h2>View Alternative Routes ({alternatives.length})</h2>
-          <ul data-testid="alt-list">
-            <li>
-              <button className="pf-btn" onClick={() => selectAlt(null)} data-testid="alt-best">
-                Best ({formatSeconds(facts.timeS)})
-              </button>
-            </li>
-            {alternatives.map((a) => (
-              <li key={a.altId}>
-                <button className="pf-btn" onClick={() => selectAlt(a.altId)} data-testid={`alt-${a.altId}`}>
-                  {a.altId}: {a.found ? formatSeconds(a.timeS) : 'unreachable'}
+        <h3>My Places</h3>
+        <div className="pf-row">
+          <div className="pf-field">
+            <label htmlFor="place-name">Save current pair as</label>
+            <input id="place-name" value={placeName} onChange={(e) => setPlaceName(e.target.value)}
+              placeholder="e.g. Daily commute" data-testid="places-name" />
+          </div>
+          <button className="pf-btn small" data-testid="places-save"
+            onClick={() => {
+              if (!placeName.trim()) return;
+              savePlace(placeName.trim(), planner.source, planner.target);
+              pushToast(`Saved “${placeName.trim()}”`);
+              setPlaceName('');
+            }}>
+            Save
+          </button>
+        </div>
+        {places.length > 0 && (
+          <ul data-testid="places-list">
+            {places.map((p) => (
+              <li key={p.id} data-testid={`places-${p.id}`}>
+                {p.name}: {vertexName(p.source)} → {vertexName(p.target)}{' '}
+                <button className="pf-btn small" data-testid={`places-apply-${p.id}`}
+                  onClick={() => { setPlanner({ source: p.source, target: p.target }); pushToast(`Loaded “${p.name}”`); }}>
+                  Apply
+                </button>{' '}
+                <button className="pf-btn small" data-testid={`places-delete-${p.id}`}
+                  onClick={() => { removePlace(p.id); pushToast(`Removed “${p.name}”`); }}>
+                  Remove
                 </button>
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
-      {phase === 'found' && facts?.found && comparison.length > 0 && (
-        <section className="pf-card" aria-label="Why this route">
-          <h2>Why This Route?</h2>
-          <button className="pf-btn" onClick={() => setShowWhy((v) => !v)} data-testid="why-toggle">
-            {showWhy ? 'Hide explanation' : 'Why This Route?'}
-          </button>
-          {showWhy && (
-            <div data-testid="why-panel">
-              <p data-testid="why-best">
-                Best route costs {formatSeconds(facts.timeS)}. Attribution incidents on this
-                route: {(bestDelta?.incidentIds.join(', ') || 'none')}.
-              </p>
-              <ul>
-                {comparison.filter((c) => c.id !== 'best').map((c) => (
-                  <li key={c.id} data-testid={`why-${c.id}`}>
-                    {c.id}: {c.timeDeltaS === null ? 'n/a' : `+${c.timeDeltaS}s vs best`};
-                    unique arcs {c.uniqueArcs.length}; incidents {(c.incidentIds.join(', ') || 'none')}
-                  </li>
-                ))}
+      {phase === 'found' && displayed && (
+        <section className="pf-card" aria-label="Route result" data-testid="route-result">
+          <h2>{route.selectedAlt ? `Alternative ${route.selectedAlt}` : 'Best route'}</h2>
+          <Tabs testid="planner-tabs" value={tab} onChange={setTab}
+            tabs={[
+              { id: 'overview', label: 'Overview' },
+              { id: 'steps', label: `Steps (${displayed.arcs.length})` },
+              { id: 'compare', label: 'Compare' },
+              { id: 'why', label: 'Why' },
+            ]} />
+          {tab === 'overview' && (
+            <div data-testid="planner-tab-overview">
+              <p className="pf-meta">{displayed.objectiveDescription}</p>
+              <dl className="pf-facts">
+                <dt>Distance</dt><dd data-testid="fact-distance">{formatMetres(displayed.distanceM)} ({displayed.distanceM} m)</dd>
+                <dt>Time</dt><dd data-testid="fact-time">{formatSeconds(displayed.timeS)} ({displayed.timeS} s)</dd>
+                <dt>Toll</dt><dd data-testid="fact-toll">{formatInr(displayed.tollInr)} ({displayed.tollInr})</dd>
+                <dt>Traffic delay</dt><dd data-testid="fact-delay">{formatSeconds(displayed.delayS)} ({displayed.delayS} s)</dd>
+              </dl>
+              <h3>Route insights</h3>
+              <ul data-testid="route-insights">
+                {facts && slowest > facts.timeS && (
+                  <li>Best is {Math.round(((slowest - facts.timeS) / slowest) * 100)}% faster than the slowest alternative.</li>
+                )}
+                {facts && facts.tollInr === 0 && <li>Toll-free route.</li>}
+                {bestDelta && bestDelta.incidentIds.length > 0 && (
+                  <li>{bestDelta.incidentIds.length} incident(s) affect this route: {bestDelta.incidentIds.join(', ')}.</li>
+                )}
+                {facts && facts.delayS > 0 && (
+                  <li>Traffic adds {Math.round((facts.delayS / facts.timeS) * 100)}% to the free-flow time.</li>
+                )}
+                {route.sharedArcs.length > 0 && (
+                  <li>{route.sharedArcs.length} arc(s) shared across all compared plans.</li>
+                )}
               </ul>
-              <p className="pf-meta" data-testid="why-shared">
-                {sharedArcs.length} shared arc(s) across compared plans.
-              </p>
             </div>
           )}
+          {tab === 'steps' && (
+            <ol className="pf-steps" data-testid="route-steps">
+              {displayed.arcs.map((a) => (
+                <li key={a.arcId} data-arc={a.arcId}>
+                  {vertexName(a.from)} → {vertexName(a.to)} <code>{a.arcId}</code>
+                </li>
+              ))}
+            </ol>
+          )}
+          {tab === 'compare' && (
+            <div data-testid="planner-tab-compare">
+              {facts?.found && route.alternatives.length > 0 ? (
+                <div>
+                  <ul data-testid="alt-list">
+                    <li>
+                      <button className="pf-btn" onClick={() => route.selectAlt(null)} data-testid="alt-best">
+                        Best ({formatSeconds(facts.timeS)})
+                      </button>
+                    </li>
+                    {route.alternatives.map((a) => (
+                      <li key={a.altId}>
+                        <button className="pf-btn" onClick={() => route.selectAlt(a.altId)} data-testid={`alt-${a.altId}`}>
+                          {a.altId}: {a.found ? formatSeconds(a.timeS) : 'unreachable'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <table data-testid="compare-table">
+                    <caption>Alternatives vs best (engine facts)</caption>
+                    <thead>
+                      <tr><th scope="col">Plan</th><th scope="col">Time</th><th scope="col">Δ time</th><th scope="col">Δ dist</th><th scope="col">Δ toll</th></tr>
+                    </thead>
+                    <tbody>
+                      {route.comparison.filter((c) => c.id !== 'best').map((c) => {
+                        const alt = route.alternatives.find((a) => a.altId === c.id);
+                        return (
+                          <tr key={c.id}>
+                            <th scope="row">{c.id}</th>
+                            <td>{alt ? formatSeconds(alt.timeS) : 'n/a'}</td>
+                            <td>{c.timeDeltaS === null ? 'n/a' : `+${c.timeDeltaS}s`}</td>
+                            <td>{c.distanceDeltaM === null ? 'n/a' : `+${c.distanceDeltaM}m`}</td>
+                            <td>{c.tollDeltaInr === null ? 'n/a' : `+₹${c.tollDeltaInr}`}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="pf-meta">No alternatives for this route.</p>
+              )}
+            </div>
+          )}
+          {tab === 'why' && (
+            <div data-testid="planner-tab-why">
+              {route.comparison.length > 0 ? (
+                <div>
+                  <button className="pf-btn" onClick={() => setShowWhy((v) => !v)} data-testid="why-toggle">
+                    {showWhy ? 'Hide explanation' : 'Why This Route?'}
+                  </button>
+                  {showWhy && (
+                    <div data-testid="why-panel">
+                      <p data-testid="why-best">
+                        Best route costs {facts ? formatSeconds(facts.timeS) : '?'}. Attribution incidents on this
+                        route: {(bestDelta?.incidentIds.join(', ') || 'none')}.
+                      </p>
+                      <ul>
+                        {route.comparison.filter((c) => c.id !== 'best').map((c) => (
+                          <li key={c.id} data-testid={`why-${c.id}`}>
+                            {c.id}: {c.timeDeltaS === null ? 'n/a' : `+${c.timeDeltaS}s vs best`};
+                            unique arcs {c.uniqueArcs.length}; incidents {(c.incidentIds.join(', ') || 'none')}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="pf-meta" data-testid="why-shared">
+                        {route.sharedArcs.length} shared arc(s) across compared plans.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="pf-meta">Comparison data appears after alternatives load.</p>
+              )}
+            </div>
+          )}
+          {route.selectedAlt && <p><Chip tone="info">Showing {route.selectedAlt} — map follows this plan</Chip></p>}
         </section>
       )}
 

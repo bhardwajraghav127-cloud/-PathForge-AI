@@ -51,6 +51,7 @@ test('AC-09..AC-11 traffic, recompute, alternatives, attribution', async ({ page
   await page.getByTestId('find-route').click();
   await expect(page.getByTestId('route-result')).toBeVisible({ timeout: 30000 });
   const baseTime = Number(/(\d+) s\)/.exec((await page.getByTestId('fact-time').textContent()) ?? '')?.[1]);
+  await page.getByTestId('planner-tabs-steps').click();
   const baseArcs = await page.getByTestId('route-steps').locator('li').allTextContents();
   expect(baseArcs.length).toBe(7);
 
@@ -83,12 +84,14 @@ test('AC-09..AC-11 traffic, recompute, alternatives, attribution', async ({ page
   expect(expected.arcs.map((a) => a.arcId)).not.toEqual(
     baseArcs.map((t) => /([a-z0-9]+:[fr])/.exec(t)?.[1]),
   );
+  await page.getByTestId('planner-tabs-steps').click();
   await page.getByTestId('route-steps').filter({ hasText: 'gt01:f' }).waitFor({ timeout: 30000 });
   const uiArcs = await page.getByTestId('route-steps').locator('li').allTextContents();
   expect(uiArcs.length).toBe(expected.arcs.length);
   for (let i = 0; i < expected.arcs.length; i++) {
     expect(uiArcs[i]).toContain(expected.arcs[i]?.arcId ?? '');
   }
+  await page.getByTestId('planner-tabs-overview').click();
   const newTime = Number(/(\d+) s\)/.exec((await page.getByTestId('fact-time').textContent()) ?? '')?.[1]);
   expect(newTime).toBe(expected.timeS);
   expect(newTime).toBeGreaterThan(baseTime);
@@ -105,15 +108,19 @@ test('AC-09..AC-11 traffic, recompute, alternatives, attribution', async ({ page
     network, overlay, source: 'chandigarh', target: 'delhi', objective: 'FASTEST', maxAlternatives: 3,
   })) as unknown as { best: EngineRoute; alternatives: EngineRoute[] };
   expect(alts.alternatives.length).toBeGreaterThanOrEqual(1);
+  await page.getByTestId('planner-tabs-compare').click();
   await expect(page.getByTestId('alt-list')).toBeVisible({ timeout: 30000 });
   const altCount = await page.getByTestId('alt-list').locator('li').count();
   expect(altCount).toBe(alts.alternatives.length + 1);
   await page.getByTestId('alt-alt0').click();
+  await page.getByTestId('planner-tabs-overview').click();
   const altTime = Number(/(\d+) s\)/.exec((await page.getByTestId('fact-time').textContent()) ?? '')?.[1]);
   expect(altTime).toBe(alts.alternatives[0]?.timeS);
+  await page.getByTestId('planner-tabs-compare').click();
 
   // Attribution: the engine names the slowing incident on the best route.
   await page.getByTestId('alt-best').click();
+  await page.getByTestId('planner-tabs-why').click();
   await page.getByTestId('why-toggle').click();
   await expect(page.getByTestId('why-best')).toContainText('i1', { timeout: 30000 });
 
