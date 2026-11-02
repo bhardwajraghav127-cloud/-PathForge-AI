@@ -9,12 +9,12 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | NOT_STARTED | — | — |
 | REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | NOT_STARTED | — | — |
 | REQ-05 | 5 objectives (fastest/shortest/toll/avoid/balanced) | §1.5 | M2 | A2 | NOT_STARTED | — | — |
-| REQ-06 | Congestion/condition simulation | §1.6 | M7 | A3 | NOT_STARTED | — | — |
+| REQ-06 | Congestion/condition simulation | §1.6 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-07 | Accidents/construction/restrictions/jams/closures | §1.7 | M3 | A2 | NOT_STARTED | — | — |
-| REQ-08 | Recalc after network/traffic change | §1.8 | M4 | A2 | NOT_STARTED | — | — |
+| REQ-08 | Recalc after network/traffic change | §1.8 | M4 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-09 | Savings-threshold diversion | §1.9 | M4 | A2 | NOT_STARTED | — | — |
 | REQ-10 | Cooldown + dedup + stability | §1.10 | M4 | A2 | NOT_STARTED | — | — |
-| REQ-11 | Explainable decisions from engine facts | §1.11 | M7 | A3 | NOT_STARTED | — | — |
+| REQ-11 | Explainable decisions from engine facts | §1.11 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-12 | Vehicle start/pause/resume/stop/reset/speed | §1.12 | M8 | A4 | NOT_STARTED | — | — |
 | REQ-13 | Position/next-road/remaining/ETA | §1.13 | M8 | A4 | NOT_STARTED | — | — |
 | REQ-14 | Mid-arc + directed rerouting, no teleport | §1.14 | M8 | A2/A4 | NOT_STARTED | — | — |
@@ -36,11 +36,11 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | AC-06 | Displayed numbers = engine facts | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | AC-07 | Start journey runs | §16 | M8 | A5 | NOT_STARTED | — | — |
 | AC-08 | Vehicle on directed arcs, no jumps | §16 | M8 | A5 | NOT_STARTED | — | — |
-| AC-09 | Apply congestion + closure | §16 | M7 | A5 | NOT_STARTED | — | — |
-| AC-10 | Version + weights update | §16 | M7 | A5 | NOT_STARTED | — | — |
-| AC-11 | Recompute on change (metamorphic) | §16 | M7 | A5 | NOT_STARTED | — | — |
+| AC-09 | Apply congestion + closure | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
+| AC-10 | Version + weights update | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
+| AC-11 | Recompute on change (metamorphic) | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | AC-12 | Marginal STAY / major RECOMMEND @10min | §16 | M8 | A5 | NOT_STARTED | — | — |
-| AC-13 | Explanations match facts | §16 | M7 | A5 | NOT_STARTED | — | — |
+| AC-13 | Explanations match facts | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | AC-14 | Accept + Stay persist history | §16 | M8 | A5 | NOT_STARTED | — | — |
 | AC-15 | Accept continues without teleport | §16 | M8 | A5 | NOT_STARTED | — | — |
 | AC-16 | Summary with required fields | §16 | M8 | A5 | NOT_STARTED | — | — |

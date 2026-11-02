@@ -61,14 +61,32 @@ export const useNetwork = create<NetworkState>()(() => ({
   roadCount: DATASET.roads.length,
 }));
 
+export interface AltRoute extends RouteFacts {
+  altId: string;
+}
+export interface CompareDelta {
+  id: string;
+  timeDeltaS: number | null;
+  distanceDeltaM: number | null;
+  tollDeltaInr: number | null;
+  uniqueArcs: string[];
+  incidentIds: string[];
+}
+
 interface RouteState {
   phase: RoutePhase;
   params: { source: string; target: string; objective: string } | null;
   facts: RouteFacts | null;
   error: string;
+  alternatives: AltRoute[];
+  comparison: CompareDelta[];
+  sharedArcs: string[];
+  selectedAlt: string | null;
   begin: (params: { source: string; target: string; objective: string }) => void;
   succeed: (facts: RouteFacts) => void;
   fail: (error: string) => void;
+  setExtras: (alts: AltRoute[], comparison: CompareDelta[], sharedArcs: string[]) => void;
+  selectAlt: (altId: string | null) => void;
   reset: () => void;
 }
 export const useRoute = create<RouteState>()((set) => ({
@@ -76,9 +94,17 @@ export const useRoute = create<RouteState>()((set) => ({
   params: null,
   facts: null,
   error: '',
-  begin: (params) => set({ phase: 'calculating', params, facts: null, error: '' }),
+  alternatives: [],
+  comparison: [],
+  sharedArcs: [],
+  selectedAlt: null,
+  begin: (params) =>
+    set({ phase: 'calculating', params, facts: null, error: '', alternatives: [], comparison: [], sharedArcs: [], selectedAlt: null }),
   succeed: (facts) =>
     set({ phase: facts.found ? 'found' : 'unreachable', facts, error: facts.reason }),
   fail: (error) => set({ phase: 'error', facts: null, error }),
-  reset: () => set({ phase: 'idle', params: null, facts: null, error: '' }),
+  setExtras: (alternatives, comparison, sharedArcs) => set({ alternatives, comparison, sharedArcs }),
+  selectAlt: (selectedAlt) => set({ selectedAlt }),
+  reset: () =>
+    set({ phase: 'idle', params: null, facts: null, error: '', alternatives: [], comparison: [], sharedArcs: [], selectedAlt: null }),
 }));

@@ -53,3 +53,13 @@
   oracle agrees on 7 arcs + distance/time/toll/delay; zero console errors
 - Evidence: 63/63 gtest, 63/63 sanitizer, 32/32 parity, e2e 1/1, verify-all all PASS
 - Next: M7 traffic editor + incidents + alternatives + explanations (AC-09..11)
+
+## 2026-11-02 — M7 (DONE, gate green)
+- Traffic store (versioned overlay: incidents/factors/closures) + TrafficPanel
+  editor; overlay flows into route.find/alternatives/compare; auto-recompute
+- Alternatives (Yen ≤3) selectable with map-follow; Why This Route? from
+  route.compare deltas + incidentIds attribution + shared arcs
+- Fixed zustand object-selector infinite render loop (React #185); E2E uses
+  scalar selectors pattern going forward
+- Evidence: e2e 2/2 (jam i1 on ex06 + ex03 closure → 13080s→16740s, 7→8 arcs,
+  attribution contains i1); verify-all 7 stages PASS
