@@ -15,6 +15,7 @@ run() { # name, command...
 bash "$ROOT/scripts/setup-check.sh"
 run "native-build" build-engine-native.sh
 run "unit-tests" test-engine.sh
+run "sanitizer" test-sanitizer.sh
 run "wasm-build" build-wasm.sh
 run "contract-parity" test-contract.sh
 run "frontend-build" build-frontend.sh

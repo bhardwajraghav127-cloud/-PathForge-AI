@@ -127,9 +127,17 @@ std::pair<Graph, std::vector<ValidationIssue>> Graph::build(const Network& net, 
             [](const Raw& x, const Raw& y) { return x.arc.id < y.arc.id; });
   g.arcs_.reserve(raws.size());
   g.costs_.reserve(raws.size());
+  g.factors_.reserve(raws.size());
   for (auto& r : raws) {
     g.arcs_.push_back(r.arc);
     g.costs_.push_back(r.c);
+  }
+  // Factors recorded per road for congestion classification (default 1000).
+  std::map<std::string, int> fmap;
+  for (const auto& f : ov.factors) fmap[f.first] = f.second;
+  for (const auto& a : g.arcs_) {
+    auto it = fmap.find(a.roadId);
+    g.factors_.push_back(it == fmap.end() ? 1000 : it->second);
   }
   g.adj_.assign(g.vertices_.size(), {});
   for (std::size_t i = 0; i < g.arcs_.size(); ++i) {
@@ -156,6 +164,10 @@ const std::vector<int>& Graph::outgoing(int vertexIdx) const {
 }
 
 EffectiveCost Graph::cost(int arcIdx) const { return costs_.at(static_cast<std::size_t>(arcIdx)); }
+
+int Graph::factorPermille(int arcIdx) const {
+  return factors_.at(static_cast<std::size_t>(arcIdx));
+}
 const Road& Graph::roadOf(int arcIdx) const {
   return roads_.at(arcs_.at(static_cast<std::size_t>(arcIdx)).roadIdx);
 }

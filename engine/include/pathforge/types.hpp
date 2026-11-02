@@ -19,7 +19,24 @@ inline constexpr std::int64_t kInf64 = static_cast<std::int64_t>(400000000000000
 inline constexpr int kMaxRequestBytes = 4 * 1024 * 1024;
 inline constexpr int kApiVersion = 1;
 
-enum class CostModel { Fastest, Shortest };
+enum class CostModel { Fastest, Shortest, LowestToll, AvoidCongestion, Balanced };
+
+// Lexicographic (tollInr, timeS, distanceM) label for LOWEST_TOLL.
+struct TollLabel {
+  std::int64_t toll = 0;
+  std::int64_t time = 0;
+  std::int64_t dist = 0;
+};
+
+// Capped algorithm trace event for lab.run (produced by C++, replayed by UI).
+struct TraceEvent {
+  std::int64_t step = 0;
+  std::string type;    // "visit" | "discover" | "relax" | "select" | "done"
+  std::string vertex;  // vertex id (when applicable)
+  std::string arc;     // arc id (when applicable)
+  std::int64_t dist = -1;
+  std::string note;
+};
 
 struct Vertex {
   std::string id;
@@ -73,6 +90,15 @@ struct RouteLeg {
 struct RouteResult {
   bool found = false;
   std::string reason;  // e.g. "UNREACHABLE" when !found
+  bool hasObjectiveTuple = false;  // true for LOWEST_TOLL
+  TollLabel objectiveTuple;        // (toll, time, distance) when structured
+  // Mid-arc source remainder (exactly-once convention; also present when the
+  // suffix is unreachable so callers can show where the vehicle is).
+  bool hasPartialLeadingArc = false;
+  RouteLeg partialLeg;
+  std::int64_t partialTimeS = 0;
+  std::int64_t partialDistanceM = 0;
+  bool partialCrawl = false;
   std::vector<RouteLeg> arcs;
   std::vector<std::string> vertices;
   std::int64_t distanceM = 0;
@@ -89,6 +115,13 @@ struct EngineStats {
   std::int64_t visitedVertices = 0;
   std::int64_t relaxedEdges = 0;
   std::int64_t heapOps = 0;
+};
+
+struct DijkstraStats {
+  std::int64_t visitedVertices = 0;
+  std::int64_t relaxedEdges = 0;
+  std::int64_t heapOps = 0;
+  bool traceTruncated = false;
 };
 
 }  // namespace pathforge

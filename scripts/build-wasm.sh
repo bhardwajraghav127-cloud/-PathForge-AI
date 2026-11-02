@@ -12,6 +12,11 @@ OUT="$ROOT/frontend/src/worker/wasm"
 mkdir -p "$OUT"
 em++ "$ROOT/engine/src/graph.cpp" \
      "$ROOT/engine/src/dijkstra.cpp" \
+     "$ROOT/engine/src/objectives.cpp" \
+     "$ROOT/engine/src/traversal.cpp" \
+     "$ROOT/engine/src/astar.cpp" \
+     "$ROOT/engine/src/lab.cpp" \
+     "$ROOT/engine/src/position.cpp" \
      "$ROOT/engine/src/engine.cpp" \
      "$ROOT/engine/src/bindings/abi.cpp" \
   -I"$ROOT/engine/include" \

@@ -50,6 +50,7 @@ class Graph {
   const Arc& arc(int arcIdx) const;
   const std::vector<int>& outgoing(int vertexIdx) const;
   EffectiveCost cost(int arcIdx) const;
+  int factorPermille(int arcIdx) const;
   const Road& roadOf(int arcIdx) const;
 
  private:
@@ -58,6 +59,7 @@ class Graph {
   std::vector<Arc> arcs_;
   std::vector<std::vector<int>> adj_;
   std::vector<EffectiveCost> costs_;
+  std::vector<int> factors_;
   std::vector<Road> roads_;
 };
 

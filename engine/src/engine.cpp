@@ -6,8 +6,13 @@
 
 #include <nlohmann/json.hpp>
 
+#include "pathforge/astar.hpp"
 #include "pathforge/dijkstra.hpp"
 #include "pathforge/graph.hpp"
+#include "pathforge/lab.hpp"
+#include "pathforge/objectives.hpp"
+#include "pathforge/position.hpp"
+#include "pathforge/traversal.hpp"
 
 namespace pathforge {
 namespace {
@@ -28,9 +33,27 @@ json errEnv(int api, const std::string& rid, const std::string& code, const std:
               {"error", {{"code", code}, {"message", msg}, {"details", details}}}};
 }
 
-json okEnv(int api, const std::string& rid, const json& result, const json& stats) {
-  return json{
-      {"apiVersion", api}, {"requestId", rid}, {"ok", true}, {"result", result}, {"stats", stats}};
+json okEnv(int api, const std::string& rid, const json& result, const json& stats,
+             const std::vector<std::string>& warnings = {}) {
+  json env{{"apiVersion", api},
+           {"requestId", rid},
+           {"ok", true},
+           {"result", result},
+           {"stats", stats}};
+  if (!warnings.empty()) env["warnings"] = warnings;
+  return env;
+}
+
+json traceToJson(const std::vector<TraceEvent>& trace) {
+  json arr = json::array();
+  for (const auto& e : trace)
+    arr.push_back({{"step", e.step},
+                   {"type", e.type},
+                   {"vertex", e.vertex},
+                   {"arc", e.arc},
+                   {"dist", e.dist},
+                   {"note", e.note}});
+  return arr;
 }
 
 Network parseNetwork(const json& j) {
@@ -79,17 +102,68 @@ json routeToJson(const RouteResult& r) {
   for (const auto& l : r.arcs)
     arcs.push_back(
         {{"arcId", l.arcId}, {"roadId", l.roadId}, {"from", l.from}, {"to", l.to}});
-  return {{"found", r.found},
-          {"reason", r.reason},
-          {"arcs", arcs},
-          {"vertices", r.vertices},
-          {"distanceM", r.distanceM},
-          {"timeS", r.timeS},
-          {"baselineTimeS", r.baselineTimeS},
-          {"delayS", r.delayS},
-          {"tollInr", r.tollInr},
-          {"objectiveCost", r.objectiveCost},
-          {"objectiveDescription", r.objectiveDescription}};
+  json cost = r.objectiveCost;
+  if (r.hasObjectiveTuple)
+    cost = {{"tollInr", r.objectiveTuple.toll},
+            {"timeS", r.objectiveTuple.time},
+            {"distanceM", r.objectiveTuple.dist}};
+  json out{{"found", r.found},
+             {"reason", r.reason},
+             {"arcs", arcs},
+             {"vertices", r.vertices},
+             {"distanceM", r.distanceM},
+             {"timeS", r.timeS},
+             {"baselineTimeS", r.baselineTimeS},
+             {"delayS", r.delayS},
+             {"tollInr", r.tollInr},
+             {"objectiveCost", cost},
+             {"objectiveDescription", r.objectiveDescription}};
+  if (r.hasPartialLeadingArc) {
+    out["partialLeadingArc"] = {
+        {"arcId", r.partialLeg.arcId},
+        {"roadId", r.partialLeg.roadId},
+        {"from", r.partialLeg.from},
+        {"to", r.partialLeg.to},
+        {"remainingTimeS", r.partialTimeS},
+        {"remainingDistanceM", r.partialDistanceM},
+        {"occupyingClosedArc", r.partialCrawl}};
+  }
+  return out;
+}
+
+// Prepend the occupied-arc remainder to a head->dst suffix result (or to an
+// unreachable suffix). Objective costs already include the remainder because
+// the suffix search started from the initial cost; only raw totals and the
+// leading leg are joined here.
+RouteResult joinRemainder(const Graph& g, const ResolvedSource& rsrc, const Remainder& rem,
+                          const RouteResult& suffix) {
+  RouteResult r;
+  r.objectiveDescription = suffix.objectiveDescription;
+  const Arc& a = g.arc(rsrc.arcIdx);
+  r.partialLeg = {a.id, a.roadId, g.vertex(a.from).id, g.vertex(a.to).id};
+  r.hasPartialLeadingArc = true;
+  r.partialTimeS = rem.timeS;
+  r.partialDistanceM = rem.distanceM;
+  r.partialCrawl = rem.crawl;
+  r.found = suffix.found;
+  r.reason = suffix.reason;
+  r.hasObjectiveTuple = suffix.hasObjectiveTuple;
+  r.objectiveTuple = suffix.objectiveTuple;
+  r.objectiveCost = suffix.objectiveCost;
+  r.arcs.reserve(suffix.arcs.size() + 1);
+  r.arcs.push_back(r.partialLeg);
+  r.arcs.insert(r.arcs.end(), suffix.arcs.begin(), suffix.arcs.end());
+  r.vertices.reserve(suffix.vertices.size() + 1);
+  r.vertices.push_back(g.vertex(a.from).id);
+  r.vertices.insert(r.vertices.end(), suffix.vertices.begin(), suffix.vertices.end());
+  EffectiveCost c = g.cost(rsrc.arcIdx);
+  std::int64_t baseRem = remainderCost(c.baselineTimeS, rsrc.fraction);
+  r.timeS = rem.timeS + suffix.timeS;
+  r.distanceM = rem.distanceM + suffix.distanceM;
+  r.baselineTimeS = baseRem + suffix.baselineTimeS;
+  r.delayS = r.timeS - r.baselineTimeS;
+  r.tollInr = suffix.tollInr;  // toll incurred once on entry
+  return r;
 }
 
 std::string dispatch(const json& req, std::int64_t elapsedUs) {
@@ -110,7 +184,8 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
                   {"version", "0.1.0"},
                   {"apiVersion", kApiVersion},
                   {"build", kBuild},
-                  {"commands", {"engine.info", "network.validate", "route.find"}}},
+                  {"commands",
+                   {"engine.info", "network.validate", "route.find", "lab.run", "route.evaluate"}}},
                  stats)
         .dump();
   }
@@ -134,24 +209,10 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
             .dump();
     }
     std::string algo = payload.value("algorithm", "DIJKSTRA");
-    if (algo != "DIJKSTRA")
-      return errEnv(kApiVersion, rid, "INTERNAL_ERROR",
-                    "algorithm " + algo + " not implemented in M1 build (arrives M2)")
-          .dump();
-    std::string objName = payload.at("objective").get<std::string>();
-    CostModel model;
-    std::string objDesc;
-    if (objName == "FASTEST") {
-      model = CostModel::Fastest;
-      objDesc = "FASTEST: minimize total effective seconds under overlay";
-    } else if (objName == "SHORTEST") {
-      model = CostModel::Shortest;
-      objDesc = "SHORTEST: minimize total metres";
-    } else {
+    if (algo != "DIJKSTRA" && algo != "A_STAR")
       return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
-                    "objective must be FASTEST or SHORTEST in M1 (more arrive M2)")
+                    "algorithm must be DIJKSTRA or A_STAR (got " + algo + ")")
           .dump();
-    }
     Network net = parseNetwork(payload.at("network"));
     Overlay ov = payload.contains("overlay") ? parseOverlay(payload.at("overlay")) : Overlay{};
     auto built = Graph::build(net, ov);
@@ -167,33 +228,324 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
           .dump();
     }
     const Graph& g = built.first;
-    std::string src = payload.at("source").get<std::string>();
+    std::string objName = payload.at("objective").get<std::string>();
+    BalancedParams bp;
+    if (payload.contains("objectiveParams")) {
+      const json& op = payload.at("objectiveParams");
+      if (!op.is_object())
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "objectiveParams must be an object")
+            .dump();
+      bp.wTime = op.value("wTime", 0LL);
+      bp.wDist = op.value("wDist", 0LL);
+      bp.wToll = op.value("wToll", 0LL);
+      bp.avoidSevere = op.value("avoidSevere", false);
+    }
+    ResolvedObjective ro = resolveObjective(g, objName, bp);
+    if (!ro.error.empty()) return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", ro.error).dump();
+    if (!payload.contains("target") || !payload.at("target").is_string())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "payload.target is required").dump();
     std::string dst = payload.at("target").get<std::string>();
-    int si = g.vertexIndex(src);
+    // Source: vertex id or {arc, fractionPermille} (no-U-turn mid-arc start).
+    ResolvedSource rsrc;
+    {
+      const json& sj = payload.at("source");
+      if (sj.is_string()) {
+        std::string src = sj.get<std::string>();
+        int si0 = g.vertexIndex(src);
+        if (si0 < 0)
+          return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown source: " + src).dump();
+        rsrc = resolveVertexSource(si0);
+      } else if (sj.is_object()) {
+        if (!sj.contains("arc") || !sj.at("arc").is_string() || !sj.contains("fractionPermille") ||
+            !sj.at("fractionPermille").is_number_integer())
+          return errEnv(kApiVersion, rid, "INVALID_POSITION",
+                        "source object requires {arc: string, fractionPermille: 0..1000}")
+              .dump();
+        rsrc = resolveArcSource(g, sj.at("arc").get<std::string>(),
+                                sj.at("fractionPermille").get<int>());
+        if (!rsrc.errorCode.empty())
+          return errEnv(kApiVersion, rid, rsrc.errorCode, rsrc.errorDetail).dump();
+      } else {
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      "source must be a vertex id or {arc, fractionPermille}")
+            .dump();
+      }
+    }
+    int si = rsrc.vertexIdx;
     int di = g.vertexIndex(dst);
-    if (si < 0) return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown source: " + src).dump();
     if (di < 0) return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown target: " + dst).dump();
+    auto costFn = [&](int ai) -> std::int64_t {
+      if (ro.model == CostModel::AvoidCongestion && ro.params.avoidSevere &&
+          classify(g.factorPermille(ai)) == CongestionClass::Severe)
+        return kInf64;  // barred: documented UNREACHABLE fallback
+      return scalarArcCost(g, ai, ro, g.factorPermille(ai));
+    };
+    std::vector<std::string> warnings;
     RouteResult r;
     DijkstraStats st;
-    if (si == di) {
-      r.found = true;
-      r.vertices = {src};
-      r.objectiveDescription = objDesc;
-    } else {
+    Remainder rem;
+    std::int64_t scalarInit = 0;
+    TollLabel tollInit{0, 0, 0};
+    if (rsrc.midArc) {
+      rem = remainderFor(g, rsrc.arcIdx, rsrc);
+      scalarInit = scalarRemainderCost(g, rsrc.arcIdx, rem, ro);
+      tollInit = {0, rem.timeS, rem.distanceM};
+    }
+    auto runScalar = [&](std::int64_t init) {
       std::vector<std::int64_t> dist;
       std::vector<int> hops;
-      std::vector<int> parent = dijkstra(g, si, model, dist, hops, st);
-      r = buildRoute(g, si, di, model, parent, dist, st, objDesc);
+      std::vector<int> parent = dijkstraScalar(g, si, costFn, dist, hops, st, nullptr, 20000, init);
+      return buildRoute(g, si, di, ro.model, parent, dist, st, ro.description);
+    };
+    if (!rsrc.midArc && si == di) {
+      r.found = true;
+      r.vertices = {g.vertex(si).id};
+      r.objectiveDescription = ro.description;
+    } else if (rsrc.midArc && g.vertex(si).id == dst) {
+      // Already at the head's doorstep: remainder only, no suffix search.
+      const Arc& a = g.arc(rsrc.arcIdx);
+      EffectiveCost c = g.cost(rsrc.arcIdx);
+      r.found = true;
+      r.objectiveDescription = ro.description;
+      r.arcs.push_back({a.id, a.roadId, g.vertex(a.from).id, g.vertex(a.to).id});
+      r.vertices = {g.vertex(a.from).id, g.vertex(a.to).id};
+      r.timeS = rem.timeS;
+      r.distanceM = rem.distanceM;
+      r.baselineTimeS = remainderCost(c.baselineTimeS, rsrc.fraction);
+      r.delayS = r.timeS - r.baselineTimeS;
+      r.tollInr = 0;
+      r.partialLeg = r.arcs[0];
+      r.hasPartialLeadingArc = true;
+      r.partialTimeS = rem.timeS;
+      r.partialDistanceM = rem.distanceM;
+      r.partialCrawl = rem.crawl;
+      if (ro.model == CostModel::LowestToll) {
+        r.hasObjectiveTuple = true;
+        r.objectiveTuple = tollInit;
+        r.objectiveCost = 0;
+      } else {
+        r.objectiveCost = scalarInit;
+      }
+    } else if (algo == "A_STAR" &&
+               (ro.model == CostModel::Fastest || ro.model == CostModel::Shortest)) {
+      AStarOutcome a = astar(g, si, di, ro.model, 20000, rsrc.midArc ? scalarInit : 0);
+      if (!a.ok)
+        return errEnv(kApiVersion, rid, "HEURISTIC_INADMISSIBLE", a.detail).dump();
+      st = a.stats;
+      RouteResult suffix = buildRoute(g, si, di, ro.model, a.parent, a.dist, st, ro.description);
+      r = rsrc.midArc ? joinRemainder(g, rsrc, rem, suffix) : suffix;
+      if (a.heuristicZero) warnings.push_back("HEURISTIC_ZERO");
+    } else if (algo == "A_STAR") {
+      // Non-geographic objectives: h=0 Dijkstra-equivalent, warned, optimal.
+      warnings.push_back("HEURISTIC_ZERO");
+      if (ro.model == CostModel::LowestToll) {
+        std::vector<TollLabel> dist;
+        std::vector<int> hops;
+        std::vector<int> parent = dijkstraToll(g, si, dist, hops, st, rsrc.midArc ? tollInit : TollLabel{0, 0, 0});
+        RouteResult suffix = buildRouteToll(g, si, di, parent, dist, st,
+                                            ro.description + " [A* with h=0: Dijkstra-equivalent]");
+        r = rsrc.midArc ? joinRemainder(g, rsrc, rem, suffix) : suffix;
+      } else {
+        RouteResult suffix = runScalar(rsrc.midArc ? scalarInit : 0);
+        suffix.objectiveDescription = ro.description + " [A* with h=0: Dijkstra-equivalent]";
+        r = rsrc.midArc ? joinRemainder(g, rsrc, rem, suffix) : suffix;
+      }
+    } else if (ro.model == CostModel::LowestToll) {
+      std::vector<TollLabel> dist;
+      std::vector<int> hops;
+      std::vector<int> parent =
+          dijkstraToll(g, si, dist, hops, st, rsrc.midArc ? tollInit : TollLabel{0, 0, 0});
+      RouteResult suffix = buildRouteToll(g, si, di, parent, dist, st, ro.description);
+      r = rsrc.midArc ? joinRemainder(g, rsrc, rem, suffix) : suffix;
+    } else {
+      RouteResult suffix;
+      if ((ro.model == CostModel::Fastest || ro.model == CostModel::Shortest) && !rsrc.midArc) {
+        std::vector<std::int64_t> dist;
+        std::vector<int> hops;
+        std::vector<int> parent = dijkstra(g, si, ro.model, dist, hops, st);
+        suffix = buildRoute(g, si, di, ro.model, parent, dist, st, ro.description);
+      } else {
+        suffix = runScalar(rsrc.midArc ? scalarInit : 0);
+      }
+      r = rsrc.midArc ? joinRemainder(g, rsrc, rem, suffix) : suffix;
     }
     json stats = {{"elapsedUs", elapsedUs},
                   {"visitedVertices", st.visitedVertices},
                   {"relaxedEdges", st.relaxedEdges},
                   {"heapOps", st.heapOps}};
-    return okEnv(kApiVersion, rid, routeToJson(r), stats).dump();
+    json result = routeToJson(r);
+    if (ro.model == CostModel::Balanced) {
+      result["objectiveWeights"] = {{"wTime", ro.normWTime},
+                                    {"wDist", ro.normWDist},
+                                    {"wToll", ro.normWToll}};
+      result["objectiveScales"] = {
+          {"sTime", ro.scales.sTime}, {"sDist", ro.scales.sDist}, {"sToll", ro.scales.sToll}};
+    }
+    return okEnv(kApiVersion, rid, result, stats, warnings).dump();
+  }
+
+  if (cmd == "lab.run") {
+    for (const char* k : {"network", "algorithm", "source"}) {
+      if (!payload.contains(k))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      std::string("payload.") + k + " is required")
+            .dump();
+    }
+    Network net = parseNetwork(payload.at("network"));
+    Overlay ov = payload.contains("overlay") ? parseOverlay(payload.at("overlay")) : Overlay{};
+    auto built = Graph::build(net, ov);
+    if (!built.second.empty()) {
+      const auto& is = built.second;
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", is.front().message).dump();
+    }
+    const Graph& g = built.first;
+    std::string lalg = payload.at("algorithm").get<std::string>();
+    std::string objName = payload.value("objective", "FASTEST");
+    BalancedParams bp;
+    if (payload.contains("objectiveParams")) {
+      const json& op = payload.at("objectiveParams");
+      bp.wTime = op.value("wTime", 0LL);
+      bp.wDist = op.value("wDist", 0LL);
+      bp.wToll = op.value("wToll", 0LL);
+      bp.avoidSevere = op.value("avoidSevere", false);
+    }
+    ResolvedObjective ro = resolveObjective(g, objName, bp);
+    if (!ro.error.empty() && lalg != "BFS" && lalg != "DFS")
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", ro.error).dump();
+    std::string src = payload.at("source").get<std::string>();
+    int si = g.vertexIndex(src);
+    if (si < 0) return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown source: " + src).dump();
+    int di = -1;
+    if (payload.contains("target")) {
+      std::string dst = payload.at("target").get<std::string>();
+      di = g.vertexIndex(dst);
+      if (di < 0)
+        return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX", "unknown target: " + dst).dump();
+    }
+    std::int64_t maxEvents = payload.value("maxEvents", 20000LL);
+    LabOutcome lo = runLab(g, lalg, si, di, ro, maxEvents);
+    if (!lo.ok) {
+      std::string code = lo.errorCode.empty() ? "INTERNAL_ERROR" : lo.errorCode;
+      return errEnv(kApiVersion, rid, code, lo.errorDetail).dump();
+    }
+    json result{{"algorithm", lo.algorithm}, {"trace", traceToJson(lo.trace)}};
+    if (!lo.order.empty()) result["order"] = lo.order;
+    if (lo.hasRoute) result["route"] = routeToJson(lo.route);
+    if (lo.heuristicZero || lo.truncated) {
+      std::vector<std::string> w;
+      if (lo.heuristicZero) w.push_back("HEURISTIC_ZERO");
+      if (lo.truncated) w.push_back("TRACE_TRUNCATED");
+      result["warningsEmitted"] = w;
+    }
+    json stats = {{"elapsedUs", elapsedUs},
+                  {"visitedVertices", lo.stats.visitedVertices},
+                  {"relaxedEdges", lo.stats.relaxedEdges},
+                  {"heapOps", lo.stats.heapOps},
+                  {"expandedVertices", lo.expandedVertices}};
+    std::vector<std::string> warnings;
+    if (lo.heuristicZero) warnings.push_back("HEURISTIC_ZERO");
+    if (lo.truncated) warnings.push_back("TRACE_TRUNCATED");
+    return okEnv(kApiVersion, rid, result, stats, warnings).dump();
+  }
+
+  if (cmd == "route.evaluate") {
+    for (const char* k : {"network", "plan"}) {
+      if (!payload.contains(k))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      std::string("payload.") + k + " is required")
+            .dump();
+    }
+    Network net = parseNetwork(payload.at("network"));
+    Overlay ov = payload.contains("overlay") ? parseOverlay(payload.at("overlay")) : Overlay{};
+    auto built = Graph::build(net, ov);
+    if (!built.second.empty())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", built.second.front().message).dump();
+    const Graph& g = built.first;
+    const json& plan = payload.at("plan");
+    if (!plan.is_object() || !plan.contains("arcs") || !plan.at("arcs").is_array())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "plan.arcs array is required").dump();
+    std::vector<std::string> arcIds;
+    for (const auto& a : plan.at("arcs")) arcIds.push_back(a.get<std::string>());
+    // Optional plan source: vertex id or {arc, fractionPermille}.
+    ResolvedSource rsrc;
+    bool hasSrc = plan.contains("source");
+    if (hasSrc) {
+      const json& sj = plan.at("source");
+      if (sj.is_string()) {
+        int si0 = g.vertexIndex(sj.get<std::string>());
+        if (si0 < 0)
+          return errEnv(kApiVersion, rid, "UNKNOWN_VERTEX",
+                        "unknown plan source: " + sj.get<std::string>())
+              .dump();
+        rsrc = resolveVertexSource(si0);
+      } else if (sj.is_object()) {
+        rsrc = resolveArcSource(g, sj.value("arc", std::string("")),
+                                sj.value("fractionPermille", -1));
+        if (!rsrc.errorCode.empty())
+          return errEnv(kApiVersion, rid, rsrc.errorCode, rsrc.errorDetail).dump();
+      } else {
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", "plan.source must be a vertex id or "
+                                                            "{arc, fractionPermille}")
+            .dump();
+      }
+    } else if (!arcIds.empty()) {
+      // Default: plan starts at its first arc's tail.
+      int ai0 = -1;
+      for (int i = 0; i < g.arcCount(); ++i) {
+        if (g.arc(i).id == arcIds[0]) {
+          ai0 = i;
+          break;
+        }
+      }
+      if (ai0 < 0)
+        return errEnv(kApiVersion, rid, "UNKNOWN_ROAD", "unknown arc in plan: " + arcIds[0])
+            .dump();
+      rsrc = resolveVertexSource(g.arc(ai0).from);
+    }
+    std::string objName = payload.value("objective", "FASTEST");
+    BalancedParams bp;
+    if (payload.contains("objectiveParams")) {
+      const json& op = payload.at("objectiveParams");
+      bp.wTime = op.value("wTime", 0LL);
+      bp.wDist = op.value("wDist", 0LL);
+      bp.wToll = op.value("wToll", 0LL);
+      bp.avoidSevere = op.value("avoidSevere", false);
+    }
+    ResolvedObjective ro = resolveObjective(g, objName, bp);
+    if (!ro.error.empty()) return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", ro.error).dump();
+    std::string ec, ed;
+    PlanEval ev = evaluatePlan(g, arcIds, rsrc, &ro, ec, ed);
+    if (!ec.empty()) return errEnv(kApiVersion, rid, ec, ed).dump();
+    json arcs = json::array();
+    for (const auto& l : ev.arcs)
+      arcs.push_back(
+          {{"arcId", l.arcId}, {"roadId", l.roadId}, {"from", l.from}, {"to", l.to}});
+    json cost = ev.objectiveCost;
+    if (ev.hasObjectiveTuple)
+      cost = {{"tollInr", ev.objectiveTuple.toll},
+              {"timeS", ev.objectiveTuple.time},
+              {"distanceM", ev.objectiveTuple.dist}};
+    json result{{"valid", ev.valid},
+                {"reason", ev.reason},
+                {"blocked", ev.blocked},
+                {"blockedAtArc", ev.blockedAtArc},
+                {"blockedAtIndex", ev.blockedAtIndex},
+                {"occupyingClosedArc", ev.occupyingClosedArc},
+                {"arcs", arcs},
+                {"vertices", ev.vertices},
+                {"distanceM", ev.distanceM},
+                {"timeS", ev.timeS},
+                {"baselineTimeS", ev.baselineTimeS},
+                {"delayS", ev.delayS},
+                {"tollInr", ev.tollInr},
+                {"objectiveCost", cost},
+                {"objectiveDescription", ro.description}};
+    json stats = {{"elapsedUs", elapsedUs}};
+    return okEnv(kApiVersion, rid, result, stats).dump();
   }
 
   return errEnv(kApiVersion, rid, "INTERNAL_ERROR",
-                "command " + cmd + " not implemented in M1 build")
+                "command " + cmd + " not implemented yet (arrives in M3)")
       .dump();
 }
 

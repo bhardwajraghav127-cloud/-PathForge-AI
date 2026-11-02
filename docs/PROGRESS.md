@@ -18,3 +18,11 @@
 - Fixes: CMakePresets moved into engine/; test arg bug; ABI extern decls; emcc→em++ link
 - Next 5: M2 graph validators/heap/BFS/DFS/A*/objectives/traffic/position-route; sanitizer preset; ≥40-fixture growth; dataset design; lab trace schema
 - Blockers: none for M2
+
+## 2026-11-02 — M2 slices 1-3 (DONE, gate green)
+- Objectives: LOWEST_TOLL lex Dijkstra, AVOID_CONGESTION penalties + avoidSevere, BALANCED fixed-point + scales; 4 unit tests
+- Traversal: BFS/DFS + capped traces; A* admissible haversine (+epsilon guards), zero-speed fallback; lab.run M2 subset; 2 focused fixes (test coords, error precedence) with maintained coverage
+- Position: mid-arc source, crawl policy, route.evaluate, shared evaluatePlan; ceiling remainders, no double-count
+- Evidence: 31/31 gtest, 31/31 ASan+UBSan, 15/15 native<->WASM parity, verify-all all PASS
+- Fixes: build-wasm.sh now compiles all engine sources (was M1 subset)
+- Next 5: M3 dataset + guarantees; Yen alternatives; incidents overlay; route.compare; scenario.compare

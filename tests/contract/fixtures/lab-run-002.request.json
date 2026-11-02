@@ -1,0 +1,1 @@
+{"apiVersion":1,"requestId":"lab-run-002","command":"lab.run","payload":{"network":{"schemaVersion":1,"vertices":[{"id":"s","lat":30.73,"lon":76.78},{"id":"t","lat":28.61,"lon":77.20}],"roads":[{"id":"r1","from":"s","to":"t","oneWay":true,"distanceM":250000,"baselineTimeS":15000}]},"algorithm":"A_STAR","source":"s","target":"t","objective":"FASTEST"}}

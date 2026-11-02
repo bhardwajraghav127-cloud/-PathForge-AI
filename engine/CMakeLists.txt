@@ -25,6 +25,11 @@ FetchContent_MakeAvailable(nlohmann_json)
 add_library(pathforge_lib
   src/graph.cpp
   src/dijkstra.cpp
+  src/objectives.cpp
+  src/traversal.cpp
+  src/astar.cpp
+  src/lab.cpp
+  src/position.cpp
   src/engine.cpp
   src/bindings/abi.cpp
 )
@@ -50,6 +55,11 @@ if(PF_BUILD_TESTS)
     tests/test_dijkstra.cpp
     tests/test_validate.cpp
     tests/test_envelope.cpp
+    tests/test_objectives.cpp
+    tests/test_traversal.cpp
+    tests/test_astar.cpp
+    tests/test_lab.cpp
+    tests/test_position.cpp
   )
   target_link_libraries(pf_tests PRIVATE pathforge_lib GTest::gtest_main)
   target_compile_options(pf_tests PRIVATE ${PF_WARN_FLAGS})
