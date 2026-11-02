@@ -13,7 +13,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run preview -- --port 8471 --strictPort',
     url: 'http://localhost:8471',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     timeout: 60000,
   },
 });
