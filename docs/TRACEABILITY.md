@@ -15,9 +15,9 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | REQ-09 | Savings-threshold diversion | §1.9 | M4 | A2 | NOT_STARTED | — | — |
 | REQ-10 | Cooldown + dedup + stability | §1.10 | M4 | A2 | NOT_STARTED | — | — |
 | REQ-11 | Explainable decisions from engine facts | §1.11 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
-| REQ-12 | Vehicle start/pause/resume/stop/reset/speed | §1.12 | M8 | A4 | NOT_STARTED | — | — |
-| REQ-13 | Position/next-road/remaining/ETA | §1.13 | M8 | A4 | NOT_STARTED | — | — |
-| REQ-14 | Mid-arc + directed rerouting, no teleport | §1.14 | M8 | A2/A4 | NOT_STARTED | — | — |
+| REQ-12 | Vehicle start/pause/resume/stop/reset/speed | §1.12 | M8 | A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
+| REQ-13 | Position/next-road/remaining/ETA | §1.13 | M8 | A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
+| REQ-14 | Mid-arc + directed rerouting, no teleport | §1.14 | M8 | A2/A4 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | REQ-15 | Accept/reject + history + summary | §1.15 | M8 | A3 | NOT_STARTED | — | — |
 | REQ-16 | Multi-stop exact ≤10 (≤12 opt-in) + heuristic | §1.16 | M5 | A2 | NOT_STARTED | — | — |
 | REQ-17 | What-if scenarios + comparison | §1.17 | M5/M9 | A3 | NOT_STARTED | — | — |
@@ -34,16 +34,16 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | AC-04 | C++ route valid + cost check | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | AC-05 | Map highlights exact arc IDs | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | AC-06 | Displayed numbers = engine facts | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
-| AC-07 | Start journey runs | §16 | M8 | A5 | NOT_STARTED | — | — |
-| AC-08 | Vehicle on directed arcs, no jumps | §16 | M8 | A5 | NOT_STARTED | — | — |
+| AC-07 | Start journey runs | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
+| AC-08 | Vehicle on directed arcs, no jumps | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | AC-09 | Apply congestion + closure | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | AC-10 | Version + weights update | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | AC-11 | Recompute on change (metamorphic) | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
-| AC-12 | Marginal STAY / major RECOMMEND @10min | §16 | M8 | A5 | NOT_STARTED | — | — |
+| AC-12 | Marginal STAY / major RECOMMEND @10min | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | AC-13 | Explanations match facts | §16 | M7 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
-| AC-14 | Accept + Stay persist history | §16 | M8 | A5 | NOT_STARTED | — | — |
-| AC-15 | Accept continues without teleport | §16 | M8 | A5 | NOT_STARTED | — | — |
-| AC-16 | Summary with required fields | §16 | M8 | A5 | NOT_STARTED | — | — |
+| AC-14 | Accept + Stay persist history | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
+| AC-15 | Accept continues without teleport | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
+| AC-16 | Summary with required fields | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | AC-17 | Scenario comparison deltas | §16 | M9 | A5 | NOT_STARTED | — | — |
 | AC-18 | Small multi-stop OPTIMAL | §16 | M9 | A5 | NOT_STARTED | — | — |
 | AC-19 | Lab BFS/DFS/Dijkstra/A*/Prim/Kruskal | §16 | M10 | A5 | NOT_STARTED | — | — |

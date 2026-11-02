@@ -4,6 +4,7 @@ import { engineClient } from './engine/client';
 import { useSettings } from './store';
 import { Dashboard, Placeholder } from './pages/pages';
 import RoutePlanner from './pages/RoutePlanner';
+import Journey from './pages/Journey';
 
 const LINKS = [
   ['/', 'Dashboard'],
@@ -54,7 +55,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/route" element={<RoutePlanner />} />
-            <Route path="/journey" element={<Placeholder title="Journey Simulator" milestone="M8" />} />
+            <Route path="/journey" element={<Journey />} />
             <Route path="/multistop" element={<Placeholder title="Multi-Stop Planner" milestone="M9" />} />
             <Route path="/scenarios" element={<Placeholder title="Scenario Comparison" milestone="M9" />} />
             <Route path="/lab" element={<Placeholder title="Algorithm Laboratory" milestone="M10" />} />

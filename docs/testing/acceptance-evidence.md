@@ -40,3 +40,23 @@ overlay payload the UI sends.
 - Alternatives: 3 engine alternatives listed; selecting `alt0` displays its
   engine facts (17126 s); map highlight follows the displayed plan.
 - Zero console/page errors across the flow.
+
+## 2026-11-02 — AC-07,08,12,14,15,16 journey green (29 s wall)
+
+Suite: `frontend/e2e/journey.spec.ts`. Oracle: native runner fed the exact
+banner-frozen position and overlay.
+
+- AC-07: Start Journey begins a run (per-arc durations from route.evaluate).
+- AC-08: vehicle holds `ex01:f` while fracPermille rises (directed, no jumps).
+- AC-12 marginal: jam `i1` on ex06 → guidance `STAY — CURRENT_IS_BEST`, no banner.
+- AC-12 major: ex04 at 10% speed → `RECOMMEND_DIVERSION — THRESHOLD_MET`,
+  banner saving 14484 s == oracle saving (threshold 600 s).
+- AC-14: Stay dismisses via engine reject (policy persisted), history shows
+  `stay`; closing ex04 → `REROUTE_REQUIRED` (new signature bypasses dismissal);
+  Accept adopts the engine-validated candidate; history shows `accept`;
+  localStorage `pf-decision-history` validates as [{stay},{accept}].
+- AC-15: after accept the vehicle still reports the frozen occupied arc;
+  map highlight equals exactly the oracle candidate arcs (starts at occupied arc).
+- AC-16: summary shows chandigarh → delhi, planned/actual times, arcs
+  traversed, accepts ≥ 1, stays ≥ 1.
+- Zero console/page errors across the flow.

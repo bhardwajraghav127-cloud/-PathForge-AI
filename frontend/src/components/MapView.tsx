@@ -17,7 +17,12 @@ function project(lat: number, lon: number, minLon: number, minLat: number, lat0:
   return { x: (lon - minLon) * kx * 10000, y: (lat - minLat) * -10000 };
 }
 
-export default function MapView({ routeArcIds }: { routeArcIds: string[] }) {
+export default function MapView({
+  routeArcIds, cyOut,
+}: {
+  routeArcIds: string[];
+  cyOut?: React.MutableRefObject<Core | null>;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
 
@@ -78,9 +83,11 @@ export default function MapView({ routeArcIds }: { routeArcIds: string[] }) {
       ],
     });
     cyRef.current = cy;
+    if (cyOut) cyOut.current = cy;
     window.__PF_DEBUG__ = { cy };
     return () => {
       window.__PF_DEBUG__ = { cy: null };
+      if (cyOut) cyOut.current = null;
       cy.destroy();
       cyRef.current = null;
     };

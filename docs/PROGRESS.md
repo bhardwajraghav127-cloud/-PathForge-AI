@@ -63,3 +63,11 @@
   scalar selectors pattern going forward
 - Evidence: e2e 2/2 (jam i1 on ex06 + ex03 closure → 13080s→16740s, 7→8 arcs,
   attribution contains i1); verify-all 7 stages PASS
+
+## 2026-11-02 — M8 (DONE, gate green)
+- Journey Simulator page: Start/Pause/Resume/Reset, 1/10/60/600× speeds,
+  per-arc durations from route.evaluate, rAF vehicle overlay (rendered-position
+  interpolation, panel mirrors ≤10 Hz), diversion checks on 60 sim-s cadence +
+  traffic edits, pause-on-banner, accept (engine-validated adopt, no teleport)
+  / stay (engine reject, policy persisted), summary + persisted decision history
+- Evidence: e2e 3/3 (incl. 29 s full journey), verify-all 7 stages PASS
