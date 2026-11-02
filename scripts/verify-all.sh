@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-all.sh (M1 scope): runs all CURRENTLY IMPLEMENTED mandatory stages.
+# verify-all.sh (M6 scope): runs all CURRENTLY IMPLEMENTED mandatory stages.
 # Later stages print NOT_APPLICABLE (never falsely PASSED). Fails fast.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,7 +19,7 @@ run "sanitizer" test-sanitizer.sh
 run "wasm-build" build-wasm.sh
 run "contract-parity" test-contract.sh
 run "frontend-build" build-frontend.sh
-na+=("e2e (mandatory from M6)")
+run "e2e" test-e2e.sh
 
 echo; echo "########## SUMMARY ##########"
 echo "PASS: ${pass[*]:-none}"

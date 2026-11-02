@@ -27,3 +27,5 @@
 - License APPROVED: MIT
 - Autonomy APPROVED: build M1→M12 in verified slices
 - Installed: cmake 4.4.5, ninja 1.13.2, emcc 6.0.13 (sdk-releases-eb132757325583b787fe9414b09afea9442b72ad-64bit)
+
+## 2026-11-02 — M6 E2E uses system Chrome via channel:chrome (no browser download); preview server reached over localhost (IPv6) after 127.0.0.1 refused; E2E asserts highlight via read-only cy handle plus rendered step list, never a test double.

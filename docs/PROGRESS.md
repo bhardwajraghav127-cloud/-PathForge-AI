@@ -42,3 +42,14 @@
 - Tests: 8 Diversion suites incl. threshold equality, cooldown/material/
   dismissal, blocked variants, accept staleness, dataset marginal-STAY /
   major-RECOMMEND end-to-end (54/54 gtest, 54/54 sanitizer, 23/23 parity)
+
+## 2026-11-02 — M6 (DONE, gate green)
+- UI: design tokens (light/dark, WCAG-conscious solids), Dashboard, Route Planner
+  (shared MapWorkspace: Cytoscape equirectangular map + planner panel), Settings
+  theme toggle; Journey/Multi-Stop/Scenarios/Lab honest M8-M10 placeholders
+- Map: preset layout, bezier parallel-edge separation, route class highlights
+  exact engine arc IDs; `window.__PF_DEBUG__.cy` read-only handle for E2E
+- E2E AC-01..AC-06 (Playwright, system Chrome, prod preview): native-runner
+  oracle agrees on 7 arcs + distance/time/toll/delay; zero console errors
+- Evidence: 63/63 gtest, 63/63 sanitizer, 32/32 parity, e2e 1/1, verify-all all PASS
+- Next: M7 traffic editor + incidents + alternatives + explanations (AC-09..11)

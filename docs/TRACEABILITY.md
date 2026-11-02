@@ -4,7 +4,7 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 
 | ID | Requirement | Source | MS | Owner | Status | Evidence | Commit |
 |----|-------------|--------|----|-------|--------|----------|--------|
-| REQ-01 | Premium responsive dashboard + network map | §1.1 | M6 | A3 | NOT_STARTED | — | — |
+| REQ-01 | Premium responsive dashboard + network map | §1.1 | M6 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | REQ-02 | Fastest vs shortest route | §1.2 | M2 | A2 | NOT_STARTED | — | — |
 | REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | NOT_STARTED | — | — |
 | REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | NOT_STARTED | — | — |
@@ -28,12 +28,12 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | REQ-22 | Tested C++ engine, native↔WASM agreement | §1.22 | M1 | A2/A5 | NOT_STARTED | — | — |
 | REQ-23 | Hero demo Chandigarh→Delhi + marginal/major cases | §1 hero | M11 | A6 | NOT_STARTED | — | — |
 | REQ-24 | Simulated-data notice + provenance + README | honesty | M11 | A6 | NOT_STARTED | — | — |
-| AC-01 | Launch without console errors | §16 | M11 | A5 | NOT_STARTED | — | — |
-| AC-02 | Network renders correct counts | §16 | M6 | A5 | NOT_STARTED | — | — |
-| AC-03 | Origin/dest select + autocomplete | §16 | M6 | A5 | NOT_STARTED | — | — |
-| AC-04 | C++ route valid + cost check | §16 | M6 | A5 | NOT_STARTED | — | — |
-| AC-05 | Map highlights exact arc IDs | §16 | M6 | A5 | NOT_STARTED | — | — |
-| AC-06 | Displayed numbers = engine facts | §16 | M6 | A5 | NOT_STARTED | — | — |
+| AC-01 | Launch without console errors | §16 | M11 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
+| AC-02 | Network renders correct counts | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
+| AC-03 | Origin/dest select + autocomplete | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
+| AC-04 | C++ route valid + cost check | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
+| AC-05 | Map highlights exact arc IDs | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
+| AC-06 | Displayed numbers = engine facts | §16 | M6 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
 | AC-07 | Start journey runs | §16 | M8 | A5 | NOT_STARTED | — | — |
 | AC-08 | Vehicle on directed arcs, no jumps | §16 | M8 | A5 | NOT_STARTED | — | — |
 | AC-09 | Apply congestion + closure | §16 | M7 | A5 | NOT_STARTED | — | — |
