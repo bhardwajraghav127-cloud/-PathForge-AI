@@ -89,10 +89,15 @@ export default function Scenarios() {
   const maxTime = Math.max(1, ...rows.map((r) => r.route.timeS));
   const maxDist = Math.max(1, ...rows.map((r) => r.route.distanceM));
   const pendingDelete = scenarios.find((s) => s.id === confirmDelete);
+  const [panelHidden, setPanelHidden] = useState(false);
 
   return (
     <div>
-      <div className="pf-workspace">
+      <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
+        aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
+        {panelHidden ? 'Show panel' : 'Hide panel'}
+      </button>
+      <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap">
           <MapView routeArcIds={previewArcs} originId="chandigarh" destId="delhi"
             statsExtra={preview ? `preview: ${preview}` : 'select a scenario to preview'} />

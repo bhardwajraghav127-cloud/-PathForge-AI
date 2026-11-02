@@ -430,15 +430,16 @@ export default function MapView(props: MapViewProps) {
       </div>
       {view === 'explore' && <div className="pf-schematic-tag" data-testid="map-schematic-tag">SCHEMATIC — NOT GEOGRAPHIC</div>}
       {chips.length > 0 && (
-        <div data-testid="stop-markers" aria-hidden="true"
+        <div data-testid="stop-markers" role="list" aria-label="Stop order markers"
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}>
           {chips.map((c) => (
-            <div key={c.id} data-testid={`stop-marker-${c.n}`}
+            <div key={c.id} data-testid={`stop-marker-${c.n}`} role="listitem"
+              aria-label={`Stop ${c.n} at ${c.id}`}
               style={{
                 position: 'absolute', top: 0, left: 0,
                 transform: `translate(${c.x}px, ${c.y}px) translate(-50%,-50%)`,
                 minWidth: 24, height: 24, borderRadius: 12,
-                background: 'var(--pf-alt)', color: '#fff',
+                background: '#8a3f06', color: '#fff',
                 fontSize: 13, fontWeight: 700, textAlign: 'center', lineHeight: '24px',
                 padding: '0 6px',
               }}>

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import MapView from '../components/MapView';
-import { Chip, EmptyState, useToasts } from '../components/ui';
+import { Chip, Confirm, EmptyState, useToasts } from '../components/ui';
 import { engineClient, useEngineStatus } from '../engine/client';
 import { EngineError } from '../engine/EngineClient';
 import { VERTICES, formatInr, formatMetres, formatSeconds, networkPayload, vertexName } from '../data/dataset';
@@ -44,6 +44,7 @@ export default function MultiStop() {
   const [phase, setPhase] = useState<'idle' | 'working' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<z.infer<typeof MultistopSchema> | null>(null);
   const [error, setError] = useState('');
+  const [confirmTour, setConfirmTour] = useState<string | null>(null);
 
   function move(i: number, d: number) {
     setStops((s) => {
@@ -99,10 +100,15 @@ export default function MultiStop() {
 
   const legArcs = result?.legs.flatMap((l) => l.route.arcs.map((a) => a.arcId)) ?? [];
   const markerOrder = result?.found ? result.order : stops.map((s) => s.id);
+  const [panelHidden, setPanelHidden] = useState(false);
 
   return (
     <div>
-      <div className="pf-workspace">
+      <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
+        aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
+        {panelHidden ? 'Show panel' : 'Hide panel'}
+      </button>
+      <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap">
           <MapView routeArcIds={legArcs} stopIds={stops.map((s) => s.id)} stopOrder={markerOrder}
             statsExtra={result?.found ? `${result.order.length} stops` : `${stops.length} stops`} />
@@ -190,7 +196,7 @@ export default function MultiStop() {
                       Load
                     </button>{' '}
                     <button className="pf-btn small" data-testid={`tour-delete-${t.id}`}
-                      onClick={() => removeTour(t.id)}>
+                      onClick={() => setConfirmTour(t.id)}>
                       Delete
                     </button>
                   </li>
@@ -246,6 +252,11 @@ export default function MultiStop() {
           )}
         </div>
       </div>
+      <Confirm open={confirmTour !== null} title="Delete tour?"
+        body={confirmTour ? `Delete saved tour “${tours.find((t) => t.id === confirmTour)?.name ?? confirmTour}”?` : ''}
+        confirmLabel="Delete" testid="tour-delete"
+        onCancel={() => setConfirmTour(null)}
+        onConfirm={() => { if (confirmTour) removeTour(confirmTour); setConfirmTour(null); pushToast('Tour deleted'); }} />
     </div>
   );
 }

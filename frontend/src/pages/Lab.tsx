@@ -243,10 +243,15 @@ export default function Lab() {
   const routeArcs = result?.route?.arcs.map((a) => a.arcId) ?? [];
   const mstSum = result?.mst ? result.mst.edges.map((e) => e.weightM).join(' + ') : '';
   const info = ALGO_INFO[algo];
+  const [panelHidden, setPanelHidden] = useState(false);
 
   return (
     <div>
-      <div className="pf-workspace">
+      <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
+        aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
+        {panelHidden ? 'Show panel' : 'Hide panel'}
+      </button>
+      <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap">
           <MapView network={net} routeArcIds={step >= (result?.trace.length ?? 0) ? routeArcs : tracedArcs}
             visitedIds={visited} frontierIds={frontier} currentId={current} />

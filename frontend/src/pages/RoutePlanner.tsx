@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import MapView from '../components/MapView';
 import RoutePanel from '../components/RoutePanel';
 import TrafficPanel from '../components/TrafficPanel';
@@ -16,9 +17,14 @@ export default function RoutePlanner() {
   const altIds = alternatives
     .filter((a) => a.found && a.altId !== selectedAlt)
     .flatMap((a) => a.arcs.map((x) => x.arcId));
+  const [panelHidden, setPanelHidden] = useState(false);
   return (
     <div>
-      <div className="pf-workspace">
+      <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
+        aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
+        {panelHidden ? 'Show panel' : 'Hide panel'}
+      </button>
+      <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap">
           <MapView routeArcIds={arcIds} altArcIds={altIds}
             originId={planner.source} destId={planner.target}

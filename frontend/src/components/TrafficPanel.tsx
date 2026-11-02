@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ROADS, vertexName } from '../data/dataset';
 import { useTraffic, type IncidentDir, type TrafficIncident } from '../traffic';
+import { Confirm, useToasts } from './ui';
 
 const KINDS: TrafficIncident['kind'][] = ['jam', 'accident', 'construction', 'partial'];
 const DIRS: IncidentDir[] = ['both', 'forward', 'reverse'];
@@ -24,10 +25,13 @@ export default function TrafficPanel() {
   const setF = useTraffic((s) => s.setFactor);
   const clearF = useTraffic((s) => s.clearFactor);
   const toggle = useTraffic((s) => s.toggleClosure);
+  const clearAll = useTraffic((s) => s.clearAll);
   const [road, setRoad] = useState('ex06');
   const [kind, setKind] = useState<TrafficIncident['kind']>('jam');
   const [dir, setDir] = useState<IncidentDir>('both');
   const [pct, setPct] = useState(40);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const { push } = useToasts();
 
   return (
     <section className="pf-card" aria-label="Traffic editor">
@@ -56,10 +60,10 @@ export default function TrafficPanel() {
         </div>
       </div>
       <div className="pf-row">
-        <button className="pf-btn" onClick={() => add(road, dir, kind)} data-testid="traffic-add">
+        <button className="pf-btn" onClick={() => { add(road, dir, kind); push('Incident reported'); }} data-testid="traffic-add">
           Report incident
         </button>
-        <button className="pf-btn" onClick={() => toggle(road)} data-testid="traffic-close">
+        <button className="pf-btn" onClick={() => { const closed = closures.includes(road); toggle(road); push(closed ? 'Road reopened' : 'Road closed'); }} data-testid="traffic-close">
           {closures.includes(road) ? 'Reopen road' : 'Close road'}
         </button>
       </div>
@@ -69,19 +73,26 @@ export default function TrafficPanel() {
           onChange={(e) => setPct(Number(e.target.value))} data-testid="traffic-factor" />
       </div>
       <div className="pf-row">
-        <button className="pf-btn" onClick={() => setF(road, pct * 10)} data-testid="traffic-apply-factor">
+        <button className="pf-btn" onClick={() => { setF(road, pct * 10); push(`Factor ${pct}% applied`); }} data-testid="traffic-apply-factor">
           Apply factor
         </button>
-        <button className="pf-btn" onClick={() => clearF(road)} data-testid="traffic-clear-factor">
+        <button className="pf-btn" onClick={() => { clearF(road); push('Factor cleared', 'info'); }} data-testid="traffic-clear-factor">
           Clear factor
         </button>
       </div>
+      {(incidents.length > 0 || Object.keys(factors).length > 0 || closures.length > 0) && (
+        <div className="pf-row">
+          <button className="pf-btn small" onClick={() => setConfirmClear(true)} data-testid="traffic-clear-all">
+            Clear all traffic
+          </button>
+        </div>
+      )}
       {incidents.length > 0 && (
         <ul data-testid="incident-list">
           {incidents.map((i) => (
             <li key={i.id} data-testid={`incident-${i.id}`}>
               {i.id}: {i.kind} on {i.road} ({i.dir}){' '}
-              <button className="pf-btn" onClick={() => remove(i.id)} data-testid={`incident-remove-${i.id}`}>
+              <button className="pf-btn small" onClick={() => { remove(i.id); push('Incident removed', 'info'); }} data-testid={`incident-remove-${i.id}`}>
                 Remove
               </button>
             </li>
@@ -91,6 +102,11 @@ export default function TrafficPanel() {
       {closures.length > 0 && (
         <p className="pf-meta" data-testid="closure-list">Closed: {closures.join(', ')}</p>
       )}
+      <Confirm open={confirmClear} title="Clear all traffic?"
+        body="Removes every incident, congestion factor, and closure from the overlay."
+        confirmLabel="Clear all" testid="traffic-clear"
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={() => { clearAll(); setConfirmClear(false); push('Traffic overlay cleared'); }} />
     </section>
   );
 }

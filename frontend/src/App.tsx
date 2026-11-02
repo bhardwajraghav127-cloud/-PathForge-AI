@@ -48,6 +48,7 @@ export default function App() {
   }, [location.pathname]);
   return (
     <div className="pf-shell">
+      <a className="pf-skip" href="#main">Skip to content</a>
       <header className="pf-header">
         <button className="pf-btn small pf-hamburger" aria-label="Toggle navigation"
           aria-expanded={navOpen} onClick={() => setNavOpen((v) => !v)} data-testid="nav-toggle">

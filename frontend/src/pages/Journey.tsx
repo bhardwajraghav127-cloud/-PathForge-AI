@@ -66,6 +66,12 @@ export default function Journey() {
   const trailRef = useRef<HTMLDivElement>(null);
   const flagSRef = useRef<HTMLDivElement>(null);
   const flagFRef = useRef<HTMLDivElement>(null);
+  const reducedMotionRef = useRef(false);
+  useEffect(() => {
+    if (window.matchMedia) {
+      reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+  }, []);
   const [follow, setFollow] = useState(false);
   const [preview, setPreview] = useState<number | null>(null);
   const [logLen, setLogLen] = useState(0);
@@ -242,16 +248,18 @@ export default function Journey() {
         if (p) {
           mu.vx = p.x;
           mu.vy = p.y;
-          mu.trail.push(p);
-          if (mu.trail.length > 8) mu.trail.shift();
-          const dots = trailRef.current?.children;
-          if (dots) {
-            for (let i = 0; i < dots.length; i++) {
-              const dot = dots[i] as HTMLElement;
-              const tp = mu.trail[mu.trail.length - 1 - i];
-              dot.style.transform = tp
-                ? `translate(${tp.x}px, ${tp.y}px) translate(-50%,-50%)`
-                : 'translate(-100px,-100px)';
+          if (!reducedMotionRef.current) {
+            mu.trail.push(p);
+            if (mu.trail.length > 8) mu.trail.shift();
+            const dots = trailRef.current?.children;
+            if (dots) {
+              for (let i = 0; i < dots.length; i++) {
+                const dot = dots[i] as HTMLElement;
+                const tp = mu.trail[mu.trail.length - 1 - i];
+                dot.style.transform = tp
+                  ? `translate(${tp.x}px, ${tp.y}px) translate(-50%,-50%)`
+                  : 'translate(-100px,-100px)';
+              }
             }
           }
         }
@@ -422,10 +430,15 @@ export default function Journey() {
     - (sim.distances[sim.pos.arcIdx] ?? 0) * (sim.pos.fracPermille / 1000);
   const showOverlays = sim.status === 'running' || sim.status === 'paused' || sim.status === 'completed';
   const previewEntry = preview !== null ? m.current.log[preview] : undefined;
+  const [panelHidden, setPanelHidden] = useState(false);
 
   return (
     <div>
-      <div className="pf-workspace">
+      <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
+        aria-expanded={!panelHidden} onClick={() => setPanelHidden(!panelHidden)}>
+        {panelHidden ? 'Show panel' : 'Hide panel'}
+      </button>
+      <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap" style={{ position: 'relative' }}>
           <MapView routeArcIds={sim.planArcs} cyOut={cyOut}
             statsExtra={sim.planArcs.length > 0 ? `${sim.planArcs.length} segments` : undefined} />
