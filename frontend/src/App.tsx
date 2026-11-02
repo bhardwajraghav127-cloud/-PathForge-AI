@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { engineClient } from './engine/client';
 import { useSettings } from './store';
+import { Toaster } from './components/ui';
 import { Dashboard, Placeholder } from './pages/pages';
 import RoutePlanner from './pages/RoutePlanner';
 import Journey from './pages/Journey';
@@ -20,7 +21,8 @@ const LINKS = [
 ] as const;
 
 function Settings() {
-  const { theme, toggleTheme } = useSettings();
+  const theme = useSettings((s) => s.theme);
+  const toggleTheme = useSettings((s) => s.toggleTheme);
   return (
     <div>
       <h2>Settings</h2>
@@ -32,29 +34,38 @@ function Settings() {
 
 export default function App() {
   const theme = useSettings((s) => s.theme);
+  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
-    // Boot the engine worker once; panel reads status via the shared client.
+    // Boot the engine worker once; panels read status via the shared client.
     engineClient.call('engine.info', {}, { channel: 'boot' }).catch(() => {});
   }, []);
+  useEffect(() => {
+    setNavOpen(false); // close the drawer on navigation
+  }, [location.pathname]);
   return (
     <div className="pf-shell">
       <header className="pf-header">
+        <button className="pf-btn small pf-hamburger" aria-label="Toggle navigation"
+          aria-expanded={navOpen} onClick={() => setNavOpen((v) => !v)} data-testid="nav-toggle">
+          ☰
+        </button>
         <h1>PathForge AI</h1>
         <span className="pf-badge" role="note">SIMULATED DATA — NOT LIVE GPS OR TRAFFIC</span>
         <span className="spacer" />
       </header>
       <div className="pf-layout">
-        <nav className="pf-nav" aria-label="Primary">
+        <nav className={`pf-nav${navOpen ? ' open' : ''}`} aria-label="Primary">
           {LINKS.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === '/'}>
               {label}
             </NavLink>
           ))}
         </nav>
-        <main className="pf-main">
+        <main className="pf-main" id="main">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/route" element={<RoutePlanner />} />
@@ -66,6 +77,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      <Toaster />
       <p id="PATHFORGE_SMOKE" hidden>PATHFORGE_SMOKE_READY</p>
     </div>
   );
