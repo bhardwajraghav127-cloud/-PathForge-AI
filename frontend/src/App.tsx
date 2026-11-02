@@ -7,6 +7,7 @@ import RoutePlanner from './pages/RoutePlanner';
 import Journey from './pages/Journey';
 import MultiStop from './pages/MultiStop';
 import Scenarios from './pages/Scenarios';
+import Lab from './pages/Lab';
 
 const LINKS = [
   ['/', 'Dashboard'],
@@ -60,7 +61,7 @@ export default function App() {
             <Route path="/journey" element={<Journey />} />
             <Route path="/multistop" element={<MultiStop />} />
             <Route path="/scenarios" element={<Scenarios />} />
-            <Route path="/lab" element={<Placeholder title="Algorithm Laboratory" milestone="M10" />} />
+            <Route path="/lab" element={<Lab />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

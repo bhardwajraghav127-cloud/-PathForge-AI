@@ -70,3 +70,18 @@ banner-frozen position and overlay.
   and closed (+closure ex03, overlay v3) stay isolated (v2 text unchanged after
   the closure edit); compare rows and Δ time/distance equal the oracle for
   normal/congested/closed; `pf-scenarios` persists 2 validated entries.
+
+## 2026-11-02 — AC-19 + trace determinism green (6/6 e2e with M6-M9)
+
+Suite: `frontend/e2e/lab.spec.ts` on the tiny 4-node graph.
+
+- Engine-level determinism: two native `lab.run` DIJKSTRA calls produce
+  byte-identical output modulo `elapsedUs`/`build`.
+- AC-19: BFS and DFS render visit orders from `a`; DIJKSTRA and A_STAR both
+  return `ab:f bc:f` (20 s, beating the 25 s diagonal); MST_PRIM and
+  MST_KRUSKAL both report weight 30 m; UI re-run reproduces the exact trace
+  (li count + route text identical).
+- Trace player: scrubbing to 0 clears the event list and all `.visited`
+  highlights; restoring full step re-lists every event.
+- `lab.compare` MST_PRIM vs MST_KRUSKAL: cost agreement `true`.
+- Zero console/page errors.

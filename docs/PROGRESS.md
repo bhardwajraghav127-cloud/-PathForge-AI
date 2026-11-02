@@ -78,3 +78,12 @@
 - Scenario Comparison: immutable traffic snapshots + localStorage persistence,
   scenario.compare across normal/saved, delta display
 - Evidence: e2e 5/5, verify-all 7 stages PASS
+
+## 2026-11-02 — M10 (DONE, gate green)
+- Algorithm Laboratory: tiny-lab + dataset networks, all 8 algorithms,
+  trace player (play/step/reset, map-follow highlights), lab.compare,
+  binsearch, closures-aware runs via traffic editor
+- MapView generalized: network prop, visited/current node styles
+- Fixed E2E trap: read of absent lab-order burned the action timeout and the
+  teardown blamed an innocent click; determinism asserts li counts + route text
+- Evidence: e2e 6/6, verify-all 7 stages PASS

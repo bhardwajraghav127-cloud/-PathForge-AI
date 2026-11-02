@@ -5,9 +5,9 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | ID | Requirement | Source | MS | Owner | Status | Evidence | Commit |
 |----|-------------|--------|----|-------|--------|----------|--------|
 | REQ-01 | Premium responsive dashboard + network map | §1.1 | M6 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M6 |
-| REQ-02 | Fastest vs shortest route | §1.2 | M2 | A2 | NOT_STARTED | — | — |
-| REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | NOT_STARTED | — | — |
-| REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | NOT_STARTED | — | — |
+| REQ-02 | Fastest vs shortest route | §1.2 | M2 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
+| REQ-03 | Up to 3 distinct alternatives | §1.3 | M3 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
+| REQ-04 | Distance/ETA/toll/congestion comparison | §1.4 | M3 | A2/A3 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
 | REQ-05 | 5 objectives (fastest/shortest/toll/avoid/balanced) | §1.5 | M2 | A2 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
 | REQ-06 | Congestion/condition simulation | §1.6 | M7 | A3 | VERIFIED | docs/testing/acceptance-evidence.md | M7 |
 | REQ-07 | Accidents/construction/restrictions/jams/closures | §1.7 | M3 | A2 | NOT_STARTED | — | — |
@@ -46,6 +46,6 @@ Status: NOT_STARTED | IN_PROGRESS | VERIFIED | DEFERRED_APPROVED. Evidence requi
 | AC-16 | Summary with required fields | §16 | M8 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M8 |
 | AC-17 | Scenario comparison deltas | §16 | M9 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
 | AC-18 | Small multi-stop OPTIMAL | §16 | M9 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M9 |
-| AC-19 | Lab BFS/DFS/Dijkstra/A*/Prim/Kruskal | §16 | M10 | A5 | NOT_STARTED | — | — |
+| AC-19 | Lab BFS/DFS/Dijkstra/A*/Prim/Kruskal | §16 | M10 | A5 | VERIFIED | docs/testing/acceptance-evidence.md | M10 |
 | AC-20 | C++ algorithms tested | §16 | M11 | A5 | NOT_STARTED | — | — |
 | M0-DOCS | M0 docs + constitution + ledger | §3 | M0 | Orch | IN_PROGRESS | this repo | — |
