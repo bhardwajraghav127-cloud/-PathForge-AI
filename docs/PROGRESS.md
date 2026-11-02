@@ -34,3 +34,11 @@
 - Dataset north-india-sim-v1 (20v/42r, 3 corridors, 4 one-ways, 4 parallel pairs, Jind leaf) + marginal/major presets + provenance; 9/9 guarantees green
 - Evidence: 46/46 gtest, 46/46 ASan+UBSan, 20/20 parity, verify-all all PASS
 - Next 5: M4 diversion engine + notification policy + presets; engine.info commands refresh; docs update; commit M3
+
+## 2026-11-02 — M4 (DONE, gate green)
+- Diversion engine: stateless assessment + notification policy + accept/reject
+  actions (STALE_PLAN gates); same solver/convention as route.find
+- Fixes: intended-destination routing for blocked plans; already-there branch
+- Tests: 8 Diversion suites incl. threshold equality, cooldown/material/
+  dismissal, blocked variants, accept staleness, dataset marginal-STAY /
+  major-RECOMMEND end-to-end (54/54 gtest, 54/54 sanitizer, 23/23 parity)

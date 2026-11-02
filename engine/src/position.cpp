@@ -1,4 +1,4 @@
-// Position resolution + shared plan evaluation.
+// Position resolution + shared plan evaluation + shared route serialization.
 #include "pathforge/position.hpp"
 
 #include "pathforge/objectives.hpp"
@@ -211,6 +211,71 @@ PlanEval evaluatePlan(const Graph& g, const std::vector<std::string>& arcIds,
   e.valid = true;
   e.delayS = e.timeS - e.baselineTimeS;
   return e;
+}
+
+nlohmann::json routeToJson(const RouteResult& r) {
+  nlohmann::json arcs = nlohmann::json::array();
+  for (const auto& l : r.arcs)
+    arcs.push_back(
+        {{"arcId", l.arcId}, {"roadId", l.roadId}, {"from", l.from}, {"to", l.to}});
+  nlohmann::json cost = r.objectiveCost;
+  if (r.hasObjectiveTuple)
+    cost = {{"tollInr", r.objectiveTuple.toll},
+            {"timeS", r.objectiveTuple.time},
+            {"distanceM", r.objectiveTuple.dist}};
+  nlohmann::json out{{"found", r.found},
+                     {"reason", r.reason},
+                     {"arcs", arcs},
+                     {"vertices", r.vertices},
+                     {"distanceM", r.distanceM},
+                     {"timeS", r.timeS},
+                     {"baselineTimeS", r.baselineTimeS},
+                     {"delayS", r.delayS},
+                     {"tollInr", r.tollInr},
+                     {"objectiveCost", cost},
+                     {"objectiveDescription", r.objectiveDescription}};
+  if (r.hasPartialLeadingArc) {
+    out["partialLeadingArc"] = {
+        {"arcId", r.partialLeg.arcId},
+        {"roadId", r.partialLeg.roadId},
+        {"from", r.partialLeg.from},
+        {"to", r.partialLeg.to},
+        {"remainingTimeS", r.partialTimeS},
+        {"remainingDistanceM", r.partialDistanceM},
+        {"occupyingClosedArc", r.partialCrawl}};
+  }
+  return out;
+}
+
+RouteResult joinRemainder(const Graph& g, const ResolvedSource& rsrc, const Remainder& rem,
+                          const RouteResult& suffix) {
+  RouteResult r;
+  r.objectiveDescription = suffix.objectiveDescription;
+  const Arc& a = g.arc(rsrc.arcIdx);
+  r.partialLeg = {a.id, a.roadId, g.vertex(a.from).id, g.vertex(a.to).id};
+  r.hasPartialLeadingArc = true;
+  r.partialTimeS = rem.timeS;
+  r.partialDistanceM = rem.distanceM;
+  r.partialCrawl = rem.crawl;
+  r.found = suffix.found;
+  r.reason = suffix.reason;
+  r.hasObjectiveTuple = suffix.hasObjectiveTuple;
+  r.objectiveTuple = suffix.objectiveTuple;
+  r.objectiveCost = suffix.objectiveCost;
+  r.arcs.reserve(suffix.arcs.size() + 1);
+  r.arcs.push_back(r.partialLeg);
+  r.arcs.insert(r.arcs.end(), suffix.arcs.begin(), suffix.arcs.end());
+  r.vertices.reserve(suffix.vertices.size() + 1);
+  r.vertices.push_back(g.vertex(a.from).id);
+  r.vertices.insert(r.vertices.end(), suffix.vertices.begin(), suffix.vertices.end());
+  EffectiveCost c = g.cost(rsrc.arcIdx);
+  std::int64_t baseRem = remainderCost(c.baselineTimeS, rsrc.fraction);
+  r.timeS = rem.timeS + suffix.timeS;
+  r.distanceM = rem.distanceM + suffix.distanceM;
+  r.baselineTimeS = baseRem + suffix.baselineTimeS;
+  r.delayS = r.timeS - r.baselineTimeS;
+  r.tollInr = suffix.tollInr;  // toll incurred once on entry
+  return r;
 }
 
 }  // namespace pathforge

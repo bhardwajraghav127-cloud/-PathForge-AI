@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "pathforge/graph.hpp"
 #include "pathforge/objectives.hpp"
 
@@ -79,6 +81,16 @@ struct PlanEval {
 // Scalar remainder under an objective (per-arc fixed-point/penalty rules).
 std::int64_t scalarRemainderCost(const Graph& g, int arcIdx, const Remainder& rem,
                                  const ResolvedObjective& ro);
+
+// Shared JSON serialization (engine commands + diversion share it).
+nlohmann::json routeToJson(const RouteResult& r);
+
+// Prepend the occupied-arc remainder to a head->dst suffix result (or to an
+// unreachable suffix). Objective costs already include the remainder because
+// the suffix search started from the initial cost; only raw totals and the
+// leading leg are joined here.
+RouteResult joinRemainder(const Graph& g, const ResolvedSource& rsrc, const Remainder& rem,
+                          const RouteResult& suffix);
 
 // Evaluate arcIds from src (src.midArc requires arcIds[0]==src.arcId).
 // Unknown arc ids are reported via errorCode (caller maps to UNKNOWN_ROAD).

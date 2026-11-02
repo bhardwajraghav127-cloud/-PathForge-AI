@@ -14,6 +14,7 @@
 #include "pathforge/graph.hpp"
 #include "pathforge/lab.hpp"
 #include "pathforge/objectives.hpp"
+#include "pathforge/diversion.hpp"
 #include "pathforge/position.hpp"
 #include "pathforge/traversal.hpp"
 #include "pathforge/yen.hpp"
@@ -127,45 +128,7 @@ Overlay parseOverlay(const json& j) {
   return ov;
 }
 
-json routeToJson(const RouteResult& r) {
-  json arcs = json::array();
-  for (const auto& l : r.arcs)
-    arcs.push_back(
-        {{"arcId", l.arcId}, {"roadId", l.roadId}, {"from", l.from}, {"to", l.to}});
-  json cost = r.objectiveCost;
-  if (r.hasObjectiveTuple)
-    cost = {{"tollInr", r.objectiveTuple.toll},
-            {"timeS", r.objectiveTuple.time},
-            {"distanceM", r.objectiveTuple.dist}};
-  json out{{"found", r.found},
-             {"reason", r.reason},
-             {"arcs", arcs},
-             {"vertices", r.vertices},
-             {"distanceM", r.distanceM},
-             {"timeS", r.timeS},
-             {"baselineTimeS", r.baselineTimeS},
-             {"delayS", r.delayS},
-             {"tollInr", r.tollInr},
-             {"objectiveCost", cost},
-             {"objectiveDescription", r.objectiveDescription}};
-  if (r.hasPartialLeadingArc) {
-    out["partialLeadingArc"] = {
-        {"arcId", r.partialLeg.arcId},
-        {"roadId", r.partialLeg.roadId},
-        {"from", r.partialLeg.from},
-        {"to", r.partialLeg.to},
-        {"remainingTimeS", r.partialTimeS},
-        {"remainingDistanceM", r.partialDistanceM},
-        {"occupyingClosedArc", r.partialCrawl}};
-  }
-  return out;
-}
-
-// One shared route solver used by route.find and scenario.compare so the two
-// commands can never diverge (same convention, same tie-breaks, same errors).
-RouteResult joinRemainder(const Graph& g, const ResolvedSource& rsrc, const Remainder& rem,
-                          const RouteResult& suffix);
-
+// (routeToJson + joinRemainder live in position.cpp; shared with diversion.)
 struct SolveOut {
   RouteResult route;
   DijkstraStats stats;
@@ -348,41 +311,6 @@ SolveOut solveRoute(const Graph& g, const json& payload) {
   return out;
 }
 
-// Prepend the occupied-arc remainder to a head->dst suffix result (or to an
-// unreachable suffix). Objective costs already include the remainder because
-// the suffix search started from the initial cost; only raw totals and the
-// leading leg are joined here.
-RouteResult joinRemainder(const Graph& g, const ResolvedSource& rsrc, const Remainder& rem,
-                          const RouteResult& suffix) {
-  RouteResult r;
-  r.objectiveDescription = suffix.objectiveDescription;
-  const Arc& a = g.arc(rsrc.arcIdx);
-  r.partialLeg = {a.id, a.roadId, g.vertex(a.from).id, g.vertex(a.to).id};
-  r.hasPartialLeadingArc = true;
-  r.partialTimeS = rem.timeS;
-  r.partialDistanceM = rem.distanceM;
-  r.partialCrawl = rem.crawl;
-  r.found = suffix.found;
-  r.reason = suffix.reason;
-  r.hasObjectiveTuple = suffix.hasObjectiveTuple;
-  r.objectiveTuple = suffix.objectiveTuple;
-  r.objectiveCost = suffix.objectiveCost;
-  r.arcs.reserve(suffix.arcs.size() + 1);
-  r.arcs.push_back(r.partialLeg);
-  r.arcs.insert(r.arcs.end(), suffix.arcs.begin(), suffix.arcs.end());
-  r.vertices.reserve(suffix.vertices.size() + 1);
-  r.vertices.push_back(g.vertex(a.from).id);
-  r.vertices.insert(r.vertices.end(), suffix.vertices.begin(), suffix.vertices.end());
-  EffectiveCost c = g.cost(rsrc.arcIdx);
-  std::int64_t baseRem = remainderCost(c.baselineTimeS, rsrc.fraction);
-  r.timeS = rem.timeS + suffix.timeS;
-  r.distanceM = rem.distanceM + suffix.distanceM;
-  r.baselineTimeS = baseRem + suffix.baselineTimeS;
-  r.delayS = r.timeS - r.baselineTimeS;
-  r.tollInr = suffix.tollInr;  // toll incurred once on entry
-  return r;
-}
-
 std::string dispatch(const json& req, std::int64_t elapsedUs) {
   int api = req.value("apiVersion", 0);
   std::string rid = req.value("requestId", std::string("unknown"));
@@ -402,7 +330,9 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
                   {"apiVersion", kApiVersion},
                   {"build", kBuild},
                   {"commands",
-                   {"engine.info", "network.validate", "route.find", "lab.run", "route.evaluate"}}},
+                   {"engine.info", "network.validate", "route.find", "route.alternatives",
+                    "route.evaluate", "route.compare", "lab.run", "scenario.compare",
+                    "diversion.evaluate"}}},
                  stats)
         .dump();
   }
@@ -928,8 +858,34 @@ std::string dispatch(const json& req, std::int64_t elapsedUs) {
     return okEnv(kApiVersion, rid, result, stats).dump();
   }
 
+  if (cmd == "diversion.evaluate") {
+    for (const char* k : {"network", "plan", "position"}) {
+      if (!payload.contains(k))
+        return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION",
+                      std::string("payload.") + k + " is required")
+          .dump();
+    }
+    Network net = parseNetwork(payload.at("network"));
+    Overlay ov;
+    std::int64_t overlayVersion = 0;
+    if (payload.contains("overlay")) {
+      ov = parseOverlay(payload.at("overlay"));
+      overlayVersion = ov.version;
+    }
+    auto built = Graph::build(net, ov);
+    if (!built.second.empty())
+      return errEnv(kApiVersion, rid, "SCHEMA_VIOLATION", built.second.front().message).dump();
+    json divPayload = payload;
+    divPayload["overlayVersion"] = overlayVersion;
+    DivOutcome dout = runDiversion(built.first, divPayload);
+    if (!dout.ok)
+      return errEnv(kApiVersion, rid, dout.errorCode, dout.errorDetail).dump();
+    json stats = {{"elapsedUs", elapsedUs}};
+    return okEnv(kApiVersion, rid, dout.result, stats).dump();
+  }
+
   return errEnv(kApiVersion, rid, "INTERNAL_ERROR",
-                "command " + cmd + " not implemented yet (arrives in M4)")
+                "command " + cmd + " not implemented yet (arrives in M5)")
       .dump();
 }
 
