@@ -27,6 +27,8 @@ export interface DecisionRecord {
   kind: 'stay' | 'accept';
   simTimeS: number;
   detail: string;
+  arcId?: string;
+  fracPermille?: number;
 }
 
 export interface JourneySummary {
@@ -68,6 +70,7 @@ interface SimState {
   planVertices: string[];
   objective: string;
   durations: number[];
+  distances: number[];
   plannedTimeS: number;
   pos: SimPosition;
   speed: number;
@@ -93,6 +96,7 @@ export const useSim = create<SimState>()((set) => ({
   durations: [],
   plannedTimeS: 0,
   pos: { arcIdx: 0, arcId: '', fracPermille: 0, simTimeS: 0 },
+  distances: [],
   speed: 60,
   banner: null,
   guidance: '',
