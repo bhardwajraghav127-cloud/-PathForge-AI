@@ -37,6 +37,14 @@ export interface MapLabel {
   kind: 'place' | 'road';
 }
 
+export interface MapPin {
+  lng: number;
+  lat: number;
+  color: string;
+  text: string;
+  testid: string;
+}
+
 export interface RealMapProps {
   testid?: string;
   initialCenter?: [number, number];
@@ -44,6 +52,9 @@ export interface RealMapProps {
   fitBounds?: [[number, number], [number, number]];
   roads?: FeatureSet | null;
   labels?: MapLabel[] | null;
+  route?: [number, number][] | null;
+  altRoutes?: [number, number][][];
+  pins?: MapPin[];
   mapOut?: React.MutableRefObject<MLMap | null>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   children?: React.ReactNode;
@@ -178,6 +189,78 @@ export default function RealMap(props: RealMapProps) {
       for (const m of markers) m.marker.remove();
     };
   }, [status, props.labels]);
+
+  // Route + alternative polylines along true edge geometry.
+  const routeIds = useRef<{ layers: string[]; sources: string[] }>({ layers: [], sources: [] });
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') return;
+    const clear = () => {
+      for (const id of routeIds.current.layers) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+      for (const id of routeIds.current.sources) {
+        if (map.getSource(id)) map.removeSource(id);
+      }
+      routeIds.current = { layers: [], sources: [] };
+    };
+    const apply = () => {
+      clear();
+      (props.altRoutes ?? []).forEach((coords, i) => {
+        if (coords.length < 2) return;
+        const sid = `route-alt-${i}`;
+        map.addSource(sid, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} } as unknown as GeoFC,
+        });
+        map.addLayer({
+          id: `route-altl-${i}`, type: 'line', source: sid,
+          paint: { 'line-color': '#b3540a', 'line-width': 3, 'line-dasharray': [2, 2] },
+        });
+        routeIds.current.layers.push(`route-altl-${i}`);
+        routeIds.current.sources.push(sid);
+      });
+      if (props.route && props.route.length > 1) {
+        map.addSource('route-line', {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: props.route }, properties: {} } as unknown as GeoFC,
+        });
+        map.addLayer({
+          id: 'route-linew', type: 'line', source: 'route-line',
+          paint: { 'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.9 },
+        });
+        map.addLayer({
+          id: 'route-line', type: 'line', source: 'route-line',
+          paint: { 'line-color': '#0b5fff', 'line-width': 5 },
+        });
+        routeIds.current.layers.push('route-linew', 'route-line');
+        routeIds.current.sources.push('route-line');
+      }
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+    return clear;
+  }, [status, props.route, props.altRoutes]);
+
+  // Origin/destination pins.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'ready') return;
+    const markers: Marker[] = [];
+    for (const p of props.pins ?? []) {
+      const el = document.createElement('div');
+      el.className = 'pf-mappin';
+      el.textContent = p.text;
+      el.style.background = p.color;
+      el.setAttribute('data-testid', p.testid);
+      el.setAttribute('role', 'img');
+      el.setAttribute('aria-label', p.text);
+      markers.push(new Marker({ element: el, anchor: 'center' }).setLngLat([p.lng, p.lat]).addTo(map));
+    }
+    return () => {
+      for (const m of markers) m.remove();
+    };
+  }, [status, props.pins]);
 
   // Optional online basemap: explicit toggle only, reverts on any tile error.
   useEffect(() => {

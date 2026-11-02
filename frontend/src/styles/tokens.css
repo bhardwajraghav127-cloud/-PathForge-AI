@@ -126,6 +126,9 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .pf-maplabel { font-size: 11px; font-weight: 600; color: #3d4a44; white-space: nowrap;
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; pointer-events: none; }
 .pf-maplabel.place { font-size: 13px; color: #1a2320; }
+.pf-mappin { min-width: 26px; height: 26px; border-radius: 13px; color: #fff;
+  font-size: 13px; font-weight: 700; text-align: center; line-height: 26px;
+  padding: 0 7px; border: 3px solid #fff; box-shadow: var(--pf-shadow); }
 .pf-panel { flex: 3 1 30%; min-width: 300px; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
 .pf-workspace.panel-hidden .pf-panel { display: none; }
 
