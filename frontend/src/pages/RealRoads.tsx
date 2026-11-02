@@ -1,11 +1,15 @@
-// Real Roads page shell (R1). Map + provenance now; routing, demo and
-// fleet arrive on phases R3–R5. No dead controls: only working UI ships.
-import { useState } from 'react';
+// Real Roads page (R2): genuine OSM road geometry + places on a local
+// MapLibre style. Routing arrives in R3; this phase proves the data renders.
+import { useMemo, useState } from 'react';
 import RealMap from '../realmap/RealMap';
-import SourceBadge, { PENDING_META } from '../realmap/SourceBadge';
+import SourceBadge from '../realmap/SourceBadge';
+import { REAL_BOUNDS, REAL_CENTER, realLabels, realRoadsGeo } from '../realmap/realData';
+import { REAL_META } from '../realmap/realMeta';
 
 export default function RealRoads() {
   const [panelHidden, setPanelHidden] = useState(false);
+  const roads = useMemo(() => realRoadsGeo(), []);
+  const labels = useMemo(() => realLabels(), []);
   return (
     <div>
       <button className="pf-btn small pf-panel-toggle" data-testid="panel-toggle"
@@ -14,21 +18,21 @@ export default function RealRoads() {
       </button>
       <div className={`pf-workspace${panelHidden ? ' panel-hidden' : ''}`}>
         <div className="pf-map-wrap pf-map-tall">
-          <RealMap testid="realmap" />
+          <RealMap testid="realmap" initialCenter={REAL_CENTER} initialZoom={13}
+            fitBounds={REAL_BOUNDS} roads={roads} labels={labels} />
         </div>
         <div className="pf-panel">
           <section className="pf-card" aria-label="Real roads mode">
-            <h2>Real Roads (preview)</h2>
-            <p>
-              Genuine OpenStreetMap road geometry with C++/WASM routing lands
-              here in phases R2–R3. The map above is already fully local:
-              no tile servers, no keys, works offline.
+            <h2>Real Roads</h2>
+            <p data-testid="real-coverage">
+              {REAL_META.coverage}
             </p>
             <p className="pf-meta">
-              Simulation Network mode (every existing page) is unchanged.
+              Click-to-route and engine navigation arrive in R3; Simulation
+              Network mode (every existing page) is unchanged.
             </p>
           </section>
-          <SourceBadge meta={PENDING_META} />
+          <SourceBadge meta={REAL_META} />
         </div>
       </div>
     </div>
