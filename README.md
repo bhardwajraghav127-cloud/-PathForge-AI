@@ -12,6 +12,122 @@
 
 # PathForge AI — Intelligent Route Optimization & Graph Algorithm Visualization System
 
+
+What is PathForge AI?
+
+PathForge AI is an intelligent route optimization, road-network analysis, traffic simulation, and fleet decision-support system built using C++17, WebAssembly, React, and TypeScript.
+
+The project demonstrates how advanced Data Structures and Algorithms can solve practical transportation and navigation problems. It combines graph-based route planning, alternative path discovery, multi-stop journey optimization, fleet coordination, dynamic rerouting, and algorithm visualization in one interactive application.
+
+Unlike a conventional map application that primarily displays roads and directions, PathForge AI focuses on the computational intelligence behind route planning: how a computer represents a road network, evaluates possible paths, selects an optimal route, responds to changing road conditions, and coordinates multiple vehicles.
+
+The Problem It Solves
+
+Transportation and logistics systems face several interconnected challenges:
+
+* Finding an efficient route between two geographical locations.
+* Comparing alternative routes based on distance and estimated travel time.
+* Planning journeys involving multiple destinations.
+* Managing several vehicles and their assigned journeys.
+* Responding to road closures, congestion, and unexpected incidents.
+* Understanding why one route is selected over another.
+* Visualizing and comparing the algorithms responsible for these decisions.
+
+PathForge AI addresses these challenges through a graph-based computational engine that applies classical algorithms to transportation networks.
+
+How PathForge AI Works
+
+The application follows a clear processing pipeline:
+
+1. Road Network Representation
+
+The transportation network is represented as a weighted directed graph.
+
+* Vertices represent geographical locations or road-network intersections.
+* Edges represent road connections.
+* Edge weights represent properties such as distance and estimated travel time.
+* Road restrictions and simulated incidents influence route evaluation.
+
+Version 3.0 introduces a real-world OpenStreetMap-based road network for New Delhi, containing 7,052 vertices and 9,423 directed roads.
+
+2. Intelligent Route Computation
+
+When a user selects a source and destination, the frontend sends the request to the C++ routing engine through a WebAssembly worker.
+
+The engine evaluates the graph using algorithms such as Dijkstra and A* to calculate routes. It can also identify alternative paths, compare route options, and evaluate diversions.
+
+3. Route Visualization and Explanation
+
+The frontend displays the results on an interactive map and presents relevant route information, including:
+
+* Selected route and road segments.
+* Estimated journey distance and duration.
+* Alternative route comparisons.
+* Route changes caused by simulated incidents.
+* Algorithm execution details and explanations.
+
+4. Dynamic Rerouting and Decision-Making
+
+Users can introduce simulated road incidents, congestion, or closures. The engine evaluates their impact and determines whether the current route should remain unchanged, whether an alternative should be recommended, or whether a complete reroute is required.
+
+5. Fleet and Multi-Stop Optimization
+
+The system also demonstrates multi-vehicle and multi-destination planning.
+
+Users can explore a simulated fleet of five vehicles, examine journey assignments, and optimize multi-stop tours using graph and optimization algorithms.
+
+Major Modules
+
+Module	Purpose
+Real Roads Planner	Plan routes on a real OpenStreetMap-based New Delhi road network.
+Smart Journey Demo	Demonstrate an end-to-end route-planning and rerouting workflow.
+Fleet Command Center	Visualize and manage a simulated fleet of five vehicles.
+Journey Simulator	Observe how changing road conditions affect journey decisions.
+Multi-Stop Planner	Optimize journeys involving multiple destinations.
+Scenario Comparison	Compare route outcomes under different simulated conditions.
+Algorithm Laboratory	Explore graph algorithms, execution traces, and performance comparisons.
+
+What Makes PathForge AI Different?
+
+1. Genuine C++ Computational Engine
+
+All pathfinding and optimization decisions are performed by a C++17 engine compiled into WebAssembly. JavaScript and TypeScript are responsible for application interaction and visualization, not implementing a duplicate pathfinding engine.
+
+2. Real Geographical Road Network
+
+Version 3.0 integrates OpenStreetMap road data with MapLibre visualization, allowing the engine to calculate routes over an actual New Delhi road network rather than only a small artificial graph.
+
+3. Explainable Algorithmic Decisions
+
+The application does not simply display a route. It helps users understand how the route was calculated, which algorithms were involved, and how changes in road conditions influence the result.
+
+4. Multiple Transportation Optimization Problems
+
+It combines shortest-path calculation, alternative route discovery, multi-stop optimization, minimum spanning trees, graph traversal, and dynamic diversion decisions.
+
+5. Academic and Practical Demonstration
+
+PathForge AI connects theoretical ADSA concepts with an interactive transportation use case. It provides visual demonstrations and testable evidence of algorithm correctness, native-to-WASM consistency, and application behavior.
+
+Technology Stack
+
+* Core Engine: C++17
+* Algorithms: Dijkstra, A*, Yen’s K-Shortest Paths, Held-Karp, Prim, Kruskal, BFS, DFS, Kahn’s Topological Sort, Merge Sort, and 2-opt.
+* WebAssembly: Emscripten
+* Frontend: React, TypeScript, Vite
+* Graph Visualization: Cytoscape.js
+* Geographical Mapping: MapLibre GL JS and OpenStreetMap
+* Testing: GoogleTest, AddressSanitizer, UndefinedBehaviorSanitizer, and Playwright
+* Deployment: Vercel
+
+Important Scope and Limitations
+
+PathForge AI is an algorithmic transportation simulation and decision-support demonstration, not a commercial navigation or fleet-dispatch service.
+
+The application uses a genuine geographical road network in its 3.0 Real Maps module, but it does not provide live GPS tracking, actual vehicle dispatch, or real-time traffic feeds. Travel times are estimates, and traffic incidents are simulated.
+
+The project is designed to demonstrate how graph algorithms and optimization techniques can power intelligent transportation systems.
+
 > **SIMULATION — NOT LIVE GPS, DISPATCH OR TRAFFIC.** All roads, times, tolls and
 > incidents are synthetic (`datasets/sample-networks/north-india-sim-v1.json`,
 > 20 vertices / 42 roads). See `docs/data-provenance.md` before reusing the
