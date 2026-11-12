@@ -1,3 +1,15 @@
+<div align="center">
+
+<a href="https://path-forge-ai-frontend.vercel.app">
+  <img src="https://img.shields.io/badge/🚀_LIVE_DEMO-Open_PathForge_AI-brightgreen?style=for-the-badge" alt="Live Demo">
+</a>
+
+<br><br>
+
+</div>
+
+---
+
 # PathForge AI — Intelligent Route Optimization & Graph Algorithm Visualization System
 
 > **SIMULATION — NOT LIVE GPS, DISPATCH OR TRAFFIC.** All roads, times, tolls and
